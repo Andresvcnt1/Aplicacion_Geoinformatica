@@ -97,7 +97,7 @@ class _FormularioReporteScreenState extends State<FormularioReporteScreen> {
     if (_posicionActual == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor, obtén la ubicación antes de enviar.'),
+          content: Text('Por favor, obtén la ubicación antes de enviar..'),
         ),
       );
       return;
