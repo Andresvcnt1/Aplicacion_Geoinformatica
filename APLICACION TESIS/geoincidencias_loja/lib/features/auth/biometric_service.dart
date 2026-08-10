@@ -6,15 +6,19 @@ class BiometricService {
 
   Future<bool> autenticarUsuario() async {
     try {
-      // Verificamos si el dispositivo soporta biometría O métodos alternativos (PIN/Patrón)
-      final bool puedeAutenticar = await _auth.canCheckBiometrics || 
-                                   await _auth.isDeviceSupported();
-      
-      if (!puedeAutenticar) return true; // Fallback: permitir pasar si no hay seguridad disponible
+      final bool puedeAutenticar =
+          await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
+
+      if (!puedeAutenticar) {
+        debugPrint(
+          'Dispositivo sin seguridad configurada. Permitiendo acceso por compatibilidad.',
+        );
+        return true;
+      }
 
       return await _auth.authenticate(
-        localizedReason: 'Verifica tu identidad para enviar el reporte de incidencia.',
-        // Permitir credenciales biométricas o de dispositivo (PIN/Patrón)
+        localizedReason:
+            'Verifica tu identidad para enviar el reporte de incidencia.',
         biometricOnly: false,
       );
     } catch (e) {
