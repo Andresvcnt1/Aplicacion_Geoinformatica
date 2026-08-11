@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme.dart';
-import 'features/reporte/reporte_screen.dart';
+import 'features/dashboard/home_screen.dart';
 
 void main() => runApp(const GeoIncidenciasApp());
 
@@ -13,7 +13,7 @@ class GeoIncidenciasApp extends StatelessWidget {
       title: 'GeoIncidencias Loja',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const ReporteScreen(),
+      home: const HomeScreen(),
     );
   }
 }
