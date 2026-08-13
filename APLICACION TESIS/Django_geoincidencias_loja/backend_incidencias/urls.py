@@ -2,10 +2,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from reportes import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('reportes.urls')),
+    path('api/reportes/', include('reportes.urls')),
+    path('api/incidencias-geojson/', views.incidencias_geojson, name='incidencias-geojson'),  
+    
 ]
 
 if settings.DEBUG:
