@@ -22,6 +22,11 @@
       display: inline-block; padding: 2px 10px; border-radius: 12px;
       color: #fff; font-size: 0.75rem; font-weight: bold;
     }
+    .btn-guardar {
+      background: #00796B; color: #fff; border: none; border-radius: 6px;
+      padding: 6px 12px; cursor: pointer; font-weight: bold; margin-top: 4px;
+    }
+    .btn-guardar:hover { background: #004D40; }
     .leyenda {
       background: #fff; padding: 10px 14px; border-radius: 8px;
       box-shadow: 0 1px 4px rgba(0,0,0,.3); font-size: 0.8rem; line-height: 1.6;
@@ -43,16 +48,14 @@
   <div id="map"></div>
 
   <script>
-    // ===== Mapa centrado en Loja =====
-    const map = L.map('map').setView([-4.0085, -79.2239], 13);
+    // ⚠️ Si tu models.py usa otros valores, edita SOLO esta línea:
+    const ESTADOS = ['Recibido', 'En proceso', 'Solucionado'];
 
+    const map = L.map('map').setView([-4.0085, -79.2239], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap © CARTO',
-      subdomains: 'abc',
-      maxZoom: 20
+      attribution: '© OpenStreetMap © CARTO', subdomains: 'abc', maxZoom: 20
     }).addTo(map);
 
-    // ===== Leyenda de estados =====
     const leyenda = L.control({ position: 'bottomright' });
     leyenda.onAdd = function () {
       const div = L.DomUtil.create('div', 'leyenda');
@@ -75,6 +78,33 @@
       return 'red';
     }
 
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    // ===== RF008: Cambiar estado desde el popup =====
+    async function cambiarEstado(id) {
+      const select = document.getElementById(`estado-${id}`);
+      const res = await fetch(`/api/incidencias/${id}/estado/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ estado: select.value })
+      });
+      if (res.ok) {
+        await cargarDatos();           // Repinta el mapa con el nuevo color
+        alert('✅ Estado actualizado correctamente');
+      } else {
+        const err = await res.json();
+        alert('❌ Error: ' + (err.error || res.status) +
+              (err.permitidos ? '\nPermitidos: ' + err.permitidos.join(', ') : ''));
+      }
+    }
+
     function pintarMapa(data) {
       if (capaGeoJSON) map.removeLayer(capaGeoJSON);
       capaGeoJSON = L.geoJSON(data, {
@@ -84,49 +114,51 @@
         }),
         onEachFeature: (feature, layer) => {
           const p = feature.properties;
+          const opciones = ESTADOS.map(e =>
+            `<option value="${e}" ${e === p.estado ? 'selected' : ''}>${e}</option>`
+          ).join('');
           let html = `
-            <strong>${p.categoria || 'Sin categoría'}</strong><br>
-            <span class="estado-badge" style="background:${colorEstado(p.estado)}">
-              ${p.estado || 'Recibido'}
-            </span>
+            <strong>${p.categoria || 'Sin categoría'}</strong> <small>#${p.id}</small><br>
+            <span class="estado-badge" style="background:${colorEstado(p.estado)}">${p.estado || 'Recibido'}</span>
             <p style="margin:6px 0">${p.descripcion || 'Sin descripción'}</p>
-            <small>📅 ${p.fecha_reporte ? String(p.fecha_reporte).substring(0, 10) : '—'}</small>`;
-          if (p.foto_url) {
-            html = `<img class="popup-foto" src="${p.foto_url}">` + html;
-            }
+            ${p.foto_url ? `<img class="popup-foto" src="${p.foto_url}">` : ''}
+            <small>📅 ${p.fecha_reporte || '—'}</small>
+            <hr style="margin:8px 0">
+            <label style="font-size:0.75rem"><strong>RF008 — Cambiar estado:</strong></label><br>
+            <select id="estado-${p.id}" style="padding:4px; margin:4px 0">${opciones}</select><br>
+            <button class="btn-guardar" onclick="cambiarEstado(${p.id})">💾 Guardar</button>`;
           layer.bindPopup(html);
         }
       }).addTo(map);
     }
 
-    // ===== Cargar GeoJSON desde tu backend Django =====
-    fetch('/api/incidencias-geojson/')
-      .then(res => res.json())
-      .then(data => {
-        datosCompletos = data;
-        // Llenar selector de categorías dinámicamente
-        const cats = [...new Set(data.features.map(f => f.properties.categoria))];
-        const select = document.getElementById('filtroCategoria');
-        cats.forEach(cat => {
+    async function cargarDatos() {
+      const res = await fetch('/api/incidencias-geojson/');
+      const data = await res.json();
+      datosCompletos = data;
+      const select = document.getElementById('filtroCategoria');
+      if (select.options.length === 1) {
+        [...new Set(data.features.map(f => f.properties.categoria))].forEach(cat => {
           const opt = document.createElement('option');
           opt.value = cat; opt.textContent = cat;
           select.appendChild(opt);
         });
-        pintarMapa(data);
-      })
-      .catch(err => console.error('Error cargando GeoJSON:', err));
+      }
+      aplicarFiltro();
+    }
 
-    // ===== Filtro por categoría (RF009) =====
-    document.getElementById('filtroCategoria').addEventListener('change', e => {
-      if (!datosCompletos) return;
-      const valor = e.target.value;
+    function aplicarFiltro() {
+      const valor = document.getElementById('filtroCategoria').value;
       valor === 'todas'
         ? pintarMapa(datosCompletos)
         : pintarMapa({
             ...datosCompletos,
             features: datosCompletos.features.filter(f => f.properties.categoria === valor)
           });
-    });
+    }
+
+    document.getElementById('filtroCategoria').addEventListener('change', aplicarFiltro);
+    cargarDatos();
   </script>
 </body>
 </html>

@@ -1,10 +1,17 @@
+import json
 from rest_framework import generics, parsers
-from django.shortcuts import render                                      # 🆕 NUEVO
-from django.contrib.admin.views.decorators import staff_member_required # 🆕 NUEVO
+from django.shortcuts import render                                      
+from django.contrib.admin.views.decorators import staff_member_required 
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import Incidencia
 from .serializers import IncidenciaSerializer
-from django.http import JsonResponse
 
+@ensure_csrf_cookie
+@staff_member_required(login_url='/admin/login/')
+def panel_administrativo(request):
+    return render(request, 'panel_administrativo.html')
 
 class IncidenciasListCreateView(generics.ListCreateAPIView):
     """
@@ -48,3 +55,32 @@ def panel_administrativo(request):
     Solo accesible para personal técnico autenticado (superusuario/admin).
     """
     return render(request, 'panel_administrativo.html')
+
+@staff_member_required(login_url='/admin/login/')
+@require_POST
+def actualizar_estado(request, inc_id):
+    """RF008: Permite al personal técnico actualizar el estado de una incidencia."""
+    try:
+        payload = json.loads(request.body)
+        nuevo_estado = payload.get('estado')
+    except (json.JSONDecodeError, AttributeError):
+        nuevo_estado = request.POST.get('estado')
+
+    if not nuevo_estado:
+        return JsonResponse({'error': 'Falta el campo estado'}, status=400)
+
+    # Valida contra los choices reales de tu modelo (si existen)
+    field = Incidencia._meta.get_field('estado')
+    if field.choices:
+        permitidos = [str(c[0]) for c in field.choices]
+        if nuevo_estado not in permitidos:
+            return JsonResponse({'error': 'Estado no válido', 'permitidos': permitidos}, status=400)
+
+    try:
+        incidencia = Incidencia.objects.get(id=inc_id)
+    except Incidencia.DoesNotExist:
+        return JsonResponse({'error': 'Incidencia no encontrada'}, status=404)
+
+    incidencia.estado = nuevo_estado
+    incidencia.save(update_fields=['estado'])
+    return JsonResponse({'ok': True, 'id': incidencia.id, 'estado': incidencia})
