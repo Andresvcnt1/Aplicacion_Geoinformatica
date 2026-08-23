@@ -3,7 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../core/constants.dart'; // Para obtener la URL base
+import '../../core/constants.dart';
 
 class MapaIncidenciasScreen extends StatefulWidget {
   const MapaIncidenciasScreen({super.key});
@@ -15,6 +15,7 @@ class MapaIncidenciasScreen extends StatefulWidget {
 class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
   List<Marker> _markers = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/api/incidencias-geojson/'),
       );
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final features = data['features'] as List;
@@ -35,21 +37,38 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
           _markers = features.map((f) {
             final coords = f['geometry']['coordinates'] as List;
             final props = f['properties'];
+
+            final double lat = (coords[1] is num) ? coords[1].toDouble() : 0.0;
+            final double lng = (coords[0] is num) ? coords[0].toDouble() : 0.0;
+
             return Marker(
-              point: LatLng(coords[1], coords[0]), // Lat, Lng
+              point: LatLng(lat, lng),
               width: 40,
               height: 40,
               child: GestureDetector(
                 onTap: () => _mostrarDetalle(props),
-                child: Icon(Icons.location_pin, color: Colors.teal, size: 40),
+                child: const Icon(
+                  Icons.location_pin,
+                  color: Colors.teal,
+                  size: 40,
+                ),
               ),
             );
           }).toList();
           _isLoading = false;
         });
+      } else {
+        setState(() {
+          _errorMessage = 'Error del servidor: ${response.statusCode}';
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _errorMessage =
+            'Error de conexión. Verifica que el backend esté corriendo.\n$e';
+        _isLoading = false;
+      });
     }
   }
 
@@ -63,11 +82,11 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              props['categoria'],
+              props['categoria'] ?? 'Sin categoría',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text(props['descripcion']),
+            Text(props['descripcion'] ?? 'Sin descripción'),
             if (props['fecha_reporte'] != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -84,20 +103,37 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mapa de Incidencias Loja')),
+      appBar: AppBar(
+        title: const Text('Mapa de Incidencias Loja'),
+        backgroundColor: Colors.teal,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red, fontSize: 16),
+                ),
+              ),
+            )
           : FlutterMap(
-              options: MapOptions(
-                initialCenter: const LatLng(
-                  -4.0085,
-                  -79.2239,
-                ), // Centro de Loja
+              options: const MapOptions(
+                initialCenter: LatLng(-4.0085, -79.2239), // Centro de Loja
                 initialZoom: 13.0,
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  // 🗺️ USAMOS CARTODB COMO ALTERNATIVA ESTABLE PARA DESARROLLO
+                  // (OpenStreetMap a veces bloquea IPs de desarrollo temporalmente)
+                  urlTemplate:
+                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                  subdomains: const ['a', 'b', 'c'],
+                  // ⚠️ OBLIGATORIO: Identifica tu app para cumplir políticas de mapas
+                  userAgentPackageName: 'com.example.geoincidencias_loja',
                 ),
                 MarkerLayer(markers: _markers),
               ],
