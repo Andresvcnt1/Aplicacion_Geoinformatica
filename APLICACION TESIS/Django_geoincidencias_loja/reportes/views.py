@@ -1,4 +1,6 @@
 from rest_framework import generics, parsers
+from django.shortcuts import render                                      # 🆕 NUEVO
+from django.contrib.admin.views.decorators import staff_member_required # 🆕 NUEVO
 from .models import Incidencia
 from .serializers import IncidenciaSerializer
 from django.http import JsonResponse
@@ -19,7 +21,6 @@ def incidencias_geojson(request):
     Endpoint para servir datos en formato GeoJSON compatible con mapas interactivos.
     Cumple con RF006: Visualización de incidencias en mapa interactivo.
     """
-
     features = []
     for inc in Incidencia.objects.all():
         features.append({
@@ -39,3 +40,11 @@ def incidencias_geojson(request):
         })
 
     return JsonResponse({"type": "FeatureCollection", "features": features})
+
+@staff_member_required(login_url='/admin/login/')
+def panel_administrativo(request):
+    """
+    RF006: Panel web con mapa interactivo de incidencias.
+    Solo accesible para personal técnico autenticado (superusuario/admin).
+    """
+    return render(request, 'panel_administrativo.html')

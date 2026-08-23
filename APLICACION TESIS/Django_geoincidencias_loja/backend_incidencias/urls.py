@@ -7,7 +7,8 @@ from reportes import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/reportes/', include('reportes.urls')),
-    path('api/incidencias-geojson/', views.incidencias_geojson, name='incidencias-geojson'),  
+    path('api/incidencias-geojson/', views.incidencias_geojson, name='incidencias-geojson'),
+    path('panel/', views.panel_administrativo, name='panel_administrativo'),  
     
 ]
 
