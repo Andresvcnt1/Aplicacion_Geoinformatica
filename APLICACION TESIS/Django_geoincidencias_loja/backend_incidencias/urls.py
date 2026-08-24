@@ -11,6 +11,8 @@ urlpatterns = [
     path('panel/', views.panel_administrativo, name='panel_administrativo'),  
     path('api/incidencias/<int:inc_id>/estado/', views.actualizar_estado, name='actualizar_estado'),   
     path('api/registro/', views.RegistroView.as_view(), name='registro'), 
+    path('api/login/', views.LoginView.as_view(), name='login'), 
+
 ]
 
 if settings.DEBUG:

@@ -1,3 +1,8 @@
+from django.contrib.auth import authenticate
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import Usuario
 import json
 from rest_framework import generics, parsers
 from django.shortcuts import render                                      
@@ -102,3 +107,42 @@ class RegistroView(generics.CreateAPIView):
             'cedula': user.cedula,
             'metodo_verificacion': user.metodo_verificacion
         }, status=status.HTTP_201_CREATED)
+
+class LoginView(APIView):
+    """Login de ciudadano mediante cédula y contraseña, devuelve tokens JWT."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        cedula = request.data.get('cedula')
+        password = request.data.get('password')
+
+        if not cedula or not password:
+            return Response(
+                {'error': 'Cédula y contraseña son requeridas'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            usuario = Usuario.objects.get(cedula=cedula)
+        except Usuario.DoesNotExist:
+            return Response(
+                {'error': 'Credenciales inválidas'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        user = authenticate(username=usuario.username, password=password)
+        if user is None:
+            return Response(
+                {'error': 'Credenciales inválidas'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'cedula': user.cedula,
+            'username': user.username,
+            'metodo_verificacion': user.metodo_verificacion,
+        }, status=status.HTTP_200_OK)
