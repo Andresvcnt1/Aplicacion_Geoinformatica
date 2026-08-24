@@ -40,6 +40,7 @@ dependencies:
   http: ^1.6.0
   image_picker: ^1.2.2
   local_auth: ^3.0.1
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
@@ -62,7 +63,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-
+  assets:
+    - assets/images/
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
@@ -93,3 +95,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  

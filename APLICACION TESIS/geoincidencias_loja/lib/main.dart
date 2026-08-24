@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
-import 'core/theme.dart';
-import 'features/dashboard/home_screen.dart';
+import 'features/splash/splash_screen.dart';
 
-void main() => runApp(const GeoIncidenciasApp());
+void main() {
+  runApp(const MyApp());
+}
 
-class GeoIncidenciasApp extends StatelessWidget {
-  const GeoIncidenciasApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'GeoIncidencias Loja',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: const HomeScreen(),
+      theme: ThemeData(
+        primaryColor: const Color(0xFF00796B),
+        useMaterial3: true,
+      ),
+      // Forzamos que arranque directo en el Splash
+      home: const SplashScreen(),
     );
   }
 }

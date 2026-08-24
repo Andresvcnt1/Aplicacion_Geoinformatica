@@ -9,7 +9,8 @@ urlpatterns = [
     path('api/reportes/', include('reportes.urls')),
     path('api/incidencias-geojson/', views.incidencias_geojson, name='incidencias-geojson'),
     path('panel/', views.panel_administrativo, name='panel_administrativo'),  
-    path('api/incidencias/<int:inc_id>/estado/', views.actualizar_estado, name='actualizar_estado'),    
+    path('api/incidencias/<int:inc_id>/estado/', views.actualizar_estado, name='actualizar_estado'),   
+    path('api/registro/', views.RegistroView.as_view(), name='registro'), 
 ]
 
 if settings.DEBUG:

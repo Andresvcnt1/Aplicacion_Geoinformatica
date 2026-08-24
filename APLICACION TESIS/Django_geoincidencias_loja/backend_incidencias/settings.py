@@ -104,7 +104,7 @@ WSGI_APPLICATION = 'backend_incidencias.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'SIG',
+        'NAME': 'sig',
         'USER': 'postgres',
         'PASSWORD': 'Hola.lol1',
         'HOST': 'localhost',
@@ -131,7 +131,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
+AUTH_USER_MODEL = 'reportes.Usuario'  # Referencia al modelo de usuario personalizado
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 

@@ -7,6 +7,9 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import Incidencia
 from .serializers import IncidenciaSerializer
+from rest_framework import generics, status
+from rest_framework.response import Response
+from .serializers import RegistroUsuarioSerializer
 
 @ensure_csrf_cookie
 @staff_member_required(login_url='/admin/login/')
@@ -84,3 +87,18 @@ def actualizar_estado(request, inc_id):
     incidencia.estado = nuevo_estado
     incidencia.save(update_fields=['estado'])
     return JsonResponse({'ok': True, 'id': incidencia.id, 'estado': incidencia})
+
+class RegistroView(generics.CreateAPIView):
+    """RF004: Registro de ciudadano con validación biométrica"""
+    serializer_class = RegistroUsuarioSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response({
+            'message': 'Usuario registrado exitosamente',
+            'cedula': user.cedula,
+            'metodo_verificacion': user.metodo_verificacion
+        }, status=status.HTTP_201_CREATED)

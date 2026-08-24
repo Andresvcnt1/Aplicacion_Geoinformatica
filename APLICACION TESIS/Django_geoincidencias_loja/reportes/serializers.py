@@ -1,3 +1,5 @@
+from django.contrib.auth.password_validation import validate_password
+from .models import Usuario
 from rest_framework import serializers
 from django.contrib.gis.geos import Point
 from .models import Incidencia
@@ -35,3 +37,32 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         validated_data['ubicacion'] = Point(lng, lat, srid=4326)
 
         return super().create(validated_data)
+
+class RegistroUsuarioSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+    password_confirm = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = Usuario
+        fields = ['cedula', 'username', 'email', 'password', 'password_confirm', 'metodo_verificacion']
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
+
+        cedula = attrs.get('cedula', '')
+        if len(cedula) != 10 or not cedula.isdigit():
+            raise serializers.ValidationError({"cedula": "Cédula debe tener 10 dígitos"})
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('password_confirm')
+        password = validated_data.pop('password')
+
+        # Generar un username único basado en la cédula para evitar conflictos
+        cedula = validated_data.get('cedula')
+        validated_data['username'] = f"usuario_{cedula}"
+
+        user = Usuario.objects.create_user(password=password, **validated_data)
+        return user
