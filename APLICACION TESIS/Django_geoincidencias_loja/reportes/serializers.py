@@ -8,6 +8,8 @@ from .models import Incidencia
 class IncidenciaSerializer(serializers.ModelSerializer):
     latitud = serializers.FloatField(write_only=True, required=True)
     longitud = serializers.FloatField(write_only=True, required=True)
+    usuario_nombre = serializers.SerializerMethodField()
+    usuario_foto = serializers.SerializerMethodField()
 
     class Meta:
         model = Incidencia
@@ -20,7 +22,9 @@ class IncidenciaSerializer(serializers.ModelSerializer):
             'estado',
             'latitud',
             'longitud',
-            'ubicacion'
+            'ubicacion',
+            'usuario_nombre',
+            'usuario_foto',
         ]
 
         extra_kwargs = {
@@ -30,6 +34,15 @@ class IncidenciaSerializer(serializers.ModelSerializer):
             'estado': {'read_only': False},
         }
 
+    def get_usuario_nombre(self, obj):
+        return obj.usuario.username if obj.usuario else 'Ciudadano anónimo'
+
+    def get_usuario_foto(self, obj):
+        request = self.context.get('request')
+        if obj.usuario and obj.usuario.foto_perfil and request:
+            return request.build_absolute_uri(obj.usuario.foto_perfil.url)
+        return None
+
     def create(self, validated_data):
         lat = validated_data.pop('latitud')
         lng = validated_data.pop('longitud')
@@ -37,6 +50,7 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         validated_data['ubicacion'] = Point(lng, lat, srid=4326)
 
         return super().create(validated_data)
+
 
 class RegistroUsuarioSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
@@ -60,9 +74,34 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
 
-        # Generar un username único basado en la cédula para evitar conflictos
         cedula = validated_data.get('cedula')
         validated_data['username'] = f"usuario_{cedula}"
 
         user = Usuario.objects.create_user(password=password, **validated_data)
         return user
+
+
+class PerfilSerializer(serializers.ModelSerializer):
+    foto_perfil_url = serializers.SerializerMethodField()
+    total_reportes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Usuario
+        fields = [
+            'cedula',
+            'username',
+            'email',
+            'metodo_verificacion',
+            'foto_perfil_url',
+            'total_reportes',
+            'fecha_registro',
+        ]
+
+    def get_foto_perfil_url(self, obj):
+        request = self.context.get('request')
+        if obj.foto_perfil and request:
+            return request.build_absolute_uri(obj.foto_perfil.url)
+        return None
+
+    def get_total_reportes(self, obj):
+        return obj.incidencias.count()

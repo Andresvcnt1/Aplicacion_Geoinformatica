@@ -15,6 +15,8 @@ from .serializers import IncidenciaSerializer
 from rest_framework import generics, status
 from rest_framework.response import Response
 from .serializers import RegistroUsuarioSerializer
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from .serializers import RegistroUsuarioSerializer, PerfilSerializer
 
 @ensure_csrf_cookie
 @staff_member_required(login_url='/admin/login/')
@@ -25,11 +27,19 @@ class IncidenciasListCreateView(generics.ListCreateAPIView):
     """
     Controlador API que proporciona operaciones CRUD completas
     para los reportes de incidencias ciudadanas.
+    Lectura pública (feed de publicaciones), creación requiere login.
     """
     queryset = Incidencia.objects.all().order_by('-fecha_creacion')
     serializer_class = IncidenciaSerializer
     parser_classes = (parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser)
 
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return [AllowAny()]
+
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)
 
 def incidencias_geojson(request):
     """
@@ -146,3 +156,20 @@ class LoginView(APIView):
             'username': user.username,
             'metodo_verificacion': user.metodo_verificacion,
         }, status=status.HTTP_200_OK)
+
+class PerfilView(APIView):
+    """Perfil del ciudadano logueado: datos, foto y estadísticas."""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
+
+    def get(self, request):
+        serializer = PerfilSerializer(request.user, context={'request': request})
+        return Response(serializer.data)
+
+    def patch(self, request):
+        foto = request.FILES.get('foto_perfil')
+        if foto:
+            request.user.foto_perfil = foto
+            request.user.save(update_fields=['foto_perfil'])
+        serializer = PerfilSerializer(request.user, context={'request': request})
+        return Response(serializer.data)
