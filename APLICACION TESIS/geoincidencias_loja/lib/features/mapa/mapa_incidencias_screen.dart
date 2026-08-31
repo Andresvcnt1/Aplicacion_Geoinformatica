@@ -127,12 +127,8 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
               ),
               children: [
                 TileLayer(
-                  // 🗺️ USAMOS CARTODB COMO ALTERNATIVA ESTABLE PARA DESARROLLO
-                  // (OpenStreetMap a veces bloquea IPs de desarrollo temporalmente)
-                  urlTemplate:
-                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                  subdomains: const ['a', 'b', 'c'],
-                  // ⚠️ OBLIGATORIO: Identifica tu app para cumplir políticas de mapas
+                  // ️ OPENSTREETMAP - GRATIS Y SIN API KEY
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.example.geoincidencias_loja',
                 ),
                 MarkerLayer(markers: _markers),
