@@ -63,11 +63,11 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
-
         cedula = attrs.get('cedula', '')
         if len(cedula) != 10 or not cedula.isdigit():
             raise serializers.ValidationError({"cedula": "Cédula debe tener 10 dígitos"})
-
+        if Usuario.objects.filter(cedula=cedula).exists():
+            raise serializers.ValidationError({"cedula": "Esta cédula ya está registrada"})
         return attrs
 
     def create(self, validated_data):
