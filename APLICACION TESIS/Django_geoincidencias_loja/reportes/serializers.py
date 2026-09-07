@@ -94,7 +94,8 @@ class PerfilSerializer(serializers.ModelSerializer):
         model = Usuario
         fields = [
             'cedula',
-            'username',
+            'first_name',
+            'last_name',
             'email',
             'metodo_verificacion',
             'foto_perfil_url',
