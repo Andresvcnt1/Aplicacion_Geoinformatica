@@ -58,7 +58,12 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Usuario
-        fields = ['cedula', 'username', 'email', 'password', 'password_confirm', 'metodo_verificacion']
+        fields = ['cedula', 'first_name', 'last_name', 'email', 'password', 'password_confirm', 'metodo_verificacion']
+
+    extra_kwargs = {
+        'first_name': {'required': True},
+        'last_name': {'required': True},
+    }
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
