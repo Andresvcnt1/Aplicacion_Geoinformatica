@@ -58,12 +58,12 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Usuario
-        fields = ['cedula', 'first_name', 'last_name', 'email', 'password', 'password_confirm', 'metodo_verificacion']
-
-    extra_kwargs = {
-        'first_name': {'required': True},
-        'last_name': {'required': True},
-    }
+        fields = ['cedula', 'first_name', 'last_name', 'username', 'email', 'password', 'password_confirm', 'metodo_verificacion']
+        extra_kwargs = {
+            'first_name': {'required': True},
+            'last_name': {'required': False},
+            'username': {'required': False},
+        }
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
@@ -78,10 +78,8 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
-
         cedula = validated_data.get('cedula')
         validated_data['username'] = f"usuario_{cedula}"
-
         user = Usuario.objects.create_user(password=password, **validated_data)
         return user
 

@@ -56,7 +56,10 @@ class _RegistroScreenState extends State<RegistroScreen> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'cedula': _cedulaController.text.trim(),
-          'username': _nombreController.text.trim(),
+          'first_name': _nombreController.text.trim().split(' ').first,
+          'last_name': _nombreController.text.trim().split(' ').length > 1
+              ? _nombreController.text.trim().split(' ').sublist(1).join(' ')
+              : '',
           'email': _emailController.text.trim(),
           'password': _passwordController.text,
           'password_confirm': _confirmPasswordController.text,
@@ -264,7 +267,6 @@ class _RegistroScreenState extends State<RegistroScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-
                     // Contraseña
                     TextFormField(
                       controller: _passwordController,
