@@ -9,4 +9,5 @@ class ApiConstants {
   static String get loginUrl => '$baseUrl$loginEndpoint';
   static String get registroUrl => '$baseUrl$registroEndpoint';
   static String get perfilUrl => '$baseUrl$perfilEndpoint';
+  static String get tokenRefreshUrl => '$baseUrl/api/token/refresh/';
 }

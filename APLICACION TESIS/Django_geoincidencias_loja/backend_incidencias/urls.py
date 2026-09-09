@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework_simplejwt.views import TokenRefreshView
 from reportes import views
 
 urlpatterns = [
@@ -13,6 +14,7 @@ urlpatterns = [
     path('api/registro/', views.RegistroView.as_view(), name='registro'), 
     path('api/login/', views.LoginView.as_view(), name='login'), 
     path('api/perfil/', views.PerfilView.as_view(), name='perfil'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
 
 if settings.DEBUG:
