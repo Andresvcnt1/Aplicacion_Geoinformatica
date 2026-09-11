@@ -109,3 +109,6 @@ class PerfilSerializer(serializers.ModelSerializer):
 
     def get_total_reportes(self, obj):
         return obj.incidencias.count()
+
+
+    #probar una cosinha jejejeje
