@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgis/postgis:14-3.3
+    container_name: geoincidencias_db
+    restart: always
+    environment:
+      POSTGRES_DB: sig
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Hola.lol1
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - geoincidencias_net
+  backend:
+    build: "./APLICACION TESIS/Django_geoincidencias_loja"
+    container_name: geoincidencias_backend
+    restart: always
+    volumes:
+      - "./APLICACION TESIS/Django_geoincidencias_loja/media:/app/media"
+      - "./APLICACION TESIS/Django_geoincidencias_loja/static:/app/static"
+    depends_on:
+      - db
+    networks:
+      - geoincidencias_net
+  nginx:
+    image: nginx:alpine
+    container_name: geoincidencias_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - "./APLICACION TESIS/Django_geoincidencias_loja/static:/var/www/static"
+      - "./APLICACION TESIS/Django_geoincidencias_loja/media:/var/www/media"
+    depends_on:
+      - backend
+    networks:
+      - geoincidencias_net
+volumes:
+  postgres_data:
+networks:
+  geoincidencias_net:
+    driver: bridge
