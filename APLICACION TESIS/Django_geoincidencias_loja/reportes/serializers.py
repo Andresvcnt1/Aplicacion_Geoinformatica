@@ -24,12 +24,14 @@ class IncidenciaSerializer(serializers.ModelSerializer):
             'estado': {'read_only': False},
         }
 
+    # CAMBIO: Mostrar Nombre y Apellido en las publicaciones
     def get_usuario_nombre(self, obj):
         if obj.usuario:
             nombre = obj.usuario.first_name or ''
             apellido = obj.usuario.last_name or ''
             nombre_completo = f"{nombre} {apellido}".strip()
-            return nombre_completo if nombre_completo else obj.usuario.username
+            # Si tiene nombre y apellido, los muestra. Si no, muestra la cédula.
+            return nombre_completo if nombre_completo else obj.usuario.cedula
         return 'Ciudadano anónimo'
 
     def get_usuario_foto(self, obj):
@@ -82,15 +84,17 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        # Extraer datos
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
         cedula = validated_data.get('cedula')
         
-        # Generar username automático
-        validated_data['username'] = f"usuario_{cedula}"
+        # CAMBIO: Usar la cédula directamente como username (más limpio que usuario_123)
+        username = cedula 
         
-        # Crear usuario
+        # Crear el usuario
         user = Usuario.objects.create_user(
+            username=username,
             password=password,
             cedula=cedula,
             first_name=validated_data.get('first_name', ''),
@@ -115,7 +119,7 @@ class PerfilSerializer(serializers.ModelSerializer):
     def get_foto_perfil_url(self, obj):
         request = self.context.get('request')
         if obj.foto_perfil and request:
-            return request.build_absolute_uri(obj.foto_perfil.url)
+            return request.build_absolute_uri(obj.usuario.foto_perfil.url)
         return None
 
     def get_total_reportes(self, obj):
