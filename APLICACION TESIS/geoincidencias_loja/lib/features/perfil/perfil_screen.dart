@@ -130,6 +130,14 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // CORRECCIÓN: Construir el nombre completo a partir de first_name y last_name
+    final firstName = _perfil?['first_name'] ?? '';
+    final lastName = _perfil?['last_name'] ?? '';
+    final nombreCompleto = '$firstName $lastName'.trim();
+    final nombreMostrar = nombreCompleto.isNotEmpty
+        ? nombreCompleto
+        : (_perfil?['username'] ?? 'Usuario');
+
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
@@ -238,21 +246,28 @@ class _PerfilScreenState extends State<PerfilScreen> {
                           ],
                         ),
                         const SizedBox(height: 14),
+
+                        // CORRECCIÓN: Mostrar nombre completo en grande
                         Text(
-                          _perfil?['username'] ?? '',
+                          nombreMostrar,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 20,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 4),
+
+                        const SizedBox(height: 6),
+
+                        // Mostrar cédula y username de forma secundaria y limpia
                         Text(
-                          'Cédula: ${_perfil?['cedula'] ?? '-'}',
+                          'C.I.: ${_perfil?['cedula'] ?? '-'}  •  ${_perfil?['username'] ?? ''}',
                           style: const TextStyle(
                             color: Colors.white70,
-                            fontSize: 13,
+                            fontSize: 14,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
