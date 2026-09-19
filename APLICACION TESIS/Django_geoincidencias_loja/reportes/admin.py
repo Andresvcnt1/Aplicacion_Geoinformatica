@@ -54,10 +54,11 @@ class IncidenciaAdmin(gis_admin.GISModelAdmin):
     }
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
-        """Fuerza el uso del widget OSM para el campo ubicacion"""
+        """Fuerza el uso del widget CartoDB para el campo ubicacion"""
         if db_field.name == 'ubicacion':
-            kwargs['widget'] = OSMWidget(**self.gis_widget_kwargs)
+            kwargs['widget'] = CartoDBWidget(**self.gis_widget_kwargs)
         return super().formfield_for_dbfield(db_field, request, **kwargs)
+
 
 # ============================================
 # 3. ADMINISTRACIÓN DE GEOCERCAS (RF007)
@@ -76,4 +77,8 @@ class GeocercaMunicipalAdmin(gis_admin.GISModelAdmin):
         }
     }
 
-    
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        """Fuerza el uso del widget CartoDB para el campo area"""
+        if db_field.name == 'area':
+            kwargs['widget'] = CartoDBWidget(**self.gis_widget_kwargs)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
