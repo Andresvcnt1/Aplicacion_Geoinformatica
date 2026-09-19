@@ -44,7 +44,7 @@ class IncidenciaAdmin(gis_admin.GISModelAdmin):
     list_display = ('categoria', 'descripcion', 'estado', 'fecha_creacion', 'ubicacion')
     list_filter = ('categoria', 'estado', 'fecha_creacion')
     search_fields = ('descripcion',)
-    
+    gis_widget = CartoDBWidget
     gis_widget_kwargs = {
         'attrs': {
             'default_lon': -79.2239,
@@ -52,12 +52,6 @@ class IncidenciaAdmin(gis_admin.GISModelAdmin):
             'default_zoom': 13,
         }
     }
-
-    def formfield_for_dbfield(self, db_field, request, **kwargs):
-        """Fuerza el uso del widget CartoDB para el campo ubicacion"""
-        if db_field.name == 'ubicacion':
-            kwargs['widget'] = CartoDBWidget(**self.gis_widget_kwargs)
-        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
 # ============================================
@@ -68,7 +62,7 @@ class GeocercaMunicipalAdmin(gis_admin.GISModelAdmin):
     list_display = ('nombre', 'activa', 'fecha_creacion')
     list_filter = ('activa',)
     search_fields = ('nombre',)
-
+    gis_widget = CartoDBWidget
     gis_widget_kwargs = {
         'attrs': {
             'default_lon': -79.2239,
@@ -76,9 +70,3 @@ class GeocercaMunicipalAdmin(gis_admin.GISModelAdmin):
             'default_zoom': 13,
         }
     }
-
-    def formfield_for_dbfield(self, db_field, request, **kwargs):
-        """Fuerza el uso del widget CartoDB para el campo area"""
-        if db_field.name == 'area':
-            kwargs['widget'] = CartoDBWidget(**self.gis_widget_kwargs)
-        return super().formfield_for_dbfield(db_field, request, **kwargs)
