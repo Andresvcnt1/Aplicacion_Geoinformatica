@@ -1,4 +1,4 @@
-from .models import GeocercaMunicipal 
+from .models import GeocercaMunicipal
 from django.contrib.auth.password_validation import validate_password
 from .models import Usuario
 from rest_framework import serializers
@@ -48,18 +48,17 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         lat = attrs.get('latitud')
         lng = attrs.get('longitud')
 
-        if lat is None or lng is None:
+        if lat is not None and lng is not None:
             punto = Point(lng, lat, srid=4326)
             dentro_de_geocerca = GeocercaMunicipal.objects.filter(
-                area__contains=punto, 
+                area__contains=punto,
                 activa=True
-                ).exists()
+            ).exists()
             if not dentro_de_geocerca:
                 raise serializers.ValidationError({
                     "ubicacion": "La ubicacion reportada esta fuera de la zona de competencia municipal."
                 })
-            return attrs
-
+        return attrs
 
     def create(self, validated_data):
         lat = validated_data.pop('latitud')
@@ -83,21 +82,15 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
             'username': {'required': False},
         }
 
-        def validate(self, attrs):
-            lat = attrs.get('latitud')
-            lng = attrs.get('longitud')
-
-            if lat is not None and lng is not None:
-                punto = Point(lng, lat, srid=4326)
-                dentro_de_geocerca = GeocercaMunicipal.objects.filter(
-                    area__contains=punto,
-                    activa=True
-                ).exists()
-                if not dentro_de_geocerca:
-                    raise serializers.ValidationError({
-                        "ubicacion": "La ubicacion reportada esta fuera de la zona de competencia municipal."
-                    })
-            return attrs
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
+        cedula = attrs.get('cedula', '')
+        if len(cedula) != 10 or not cedula.isdigit():
+            raise serializers.ValidationError({"cedula": "Cédula debe tener 10 dígitos"})
+        if Usuario.objects.filter(cedula=cedula).exists():
+            raise serializers.ValidationError({"cedula": "Esta cédula ya está registrada"})
+        return attrs
 
     def create(self, validated_data):
         validated_data.pop('password_confirm')
