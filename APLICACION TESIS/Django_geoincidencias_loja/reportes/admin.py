@@ -75,3 +75,5 @@ class GeocercaMunicipalAdmin(gis_admin.GISModelAdmin):
             'default_zoom': 13,
         }
     }
+
+    
