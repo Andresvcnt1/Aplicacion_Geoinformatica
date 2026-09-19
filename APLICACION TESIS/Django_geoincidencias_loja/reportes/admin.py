@@ -4,7 +4,6 @@ from django.contrib.gis import admin as gis_admin
 from django.contrib.gis.forms.widgets import OSMWidget
 from .models import Incidencia, Usuario, GeocercaMunicipal
 
-
 # ============================================
 # 1. ADMINISTRACIÓN DE USUARIOS (RF004)
 # ============================================
@@ -34,6 +33,12 @@ class UsuarioAdmin(UserAdmin):
 # ============================================
 # 2. ADMINISTRACIÓN DE INCIDENCIAS (GeoDjango)
 # ============================================
+
+class CartoDBWidget(OSMWidget):
+    """Widget de mapa usando CartoDB en vez del OSM directo,
+    para evitar el bloqueo por política de uso de OpenStreetMap."""
+    template_name = 'gis/admin/cartodb-osm.html'
+
 @admin.register(Incidencia)
 class IncidenciaAdmin(gis_admin.GISModelAdmin):
     list_display = ('categoria', 'descripcion', 'estado', 'fecha_creacion', 'ubicacion')
