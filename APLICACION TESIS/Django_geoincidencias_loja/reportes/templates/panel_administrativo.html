@@ -52,9 +52,9 @@
     const ESTADOS = ['Recibido', 'En proceso', 'Solucionado'];
 
     const map = L.map('map').setView([-4.0085, -79.2239], 13);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-    attribution: '© Esri — Source: Esri, HERE, Garmin, USGS, EPA', maxZoom: 19
-    }).addTo(map);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors', maxZoom: 19
+      }).addTo(map);
 
     const leyenda = L.control({ position: 'bottomright' });
     leyenda.onAdd = function () {

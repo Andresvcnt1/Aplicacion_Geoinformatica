@@ -8,10 +8,5 @@ options['default_zoom'] = {{ default_zoom|unlocalize }};
 {% endblock %}
 
 {% block base_layer %}
-var base_layer = new ol.layer.Tile({
-    source: new ol.source.XYZ({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-        attributions: '© Esri, HERE, Garmin, USGS, EPA'
-    })
-});
+var base_layer = new ol.layer.Tile({source: new ol.source.OSM()});
 {% endblock %}
