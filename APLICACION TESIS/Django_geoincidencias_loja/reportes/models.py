@@ -45,3 +45,23 @@ class Incidencia(models.Model):
 
     def __str__(self):
         return f"{self.get_categoria_display()} - {self.fecha_creacion.strftime('%d/%m/%Y')}"
+
+class GeocercaMunicipal(models.Model):
+    """
+    RF007: Delimita el área de competencia municipal mediante geocercas.
+    Solo se aceptan incidencias reportadas dentro de estas zonas.
+    """
+
+    nombre = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True, null=True)
+    area = models.PolygonField(srid=4326)
+    activa = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Geocerca Municipal'
+        verbose_name_plural = 'Geocercas Municipales'
+
+
+    def __str__(self):
+        return f"{self.nombre} - {'Activa' if self.activa else 'Inactiva'}"

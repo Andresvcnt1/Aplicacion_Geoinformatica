@@ -1,3 +1,4 @@
+from .models import GeocercaMunicipal 
 from django.contrib.auth.password_validation import validate_password
 from .models import Usuario
 from rest_framework import serializers
@@ -42,6 +43,23 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         if obj.usuario and obj.usuario.foto_perfil and request:
             return request.build_absolute_uri(obj.usuario.foto_perfil.url)
         return None
+
+    def validate(self, attrs):
+        lat = attrs.get('latitud')
+        lng = attrs.get('longitud')
+
+        if lat is None or lng is None:
+            punto = Point(lng, lat, srid=4326)
+            dentro_de_geocerca = GeocercaMunicipal.objects.filter(
+                area__contains=punto, 
+                activa=True
+                ).exists()
+            if not dentro_de_geocerca:
+                raise serializers.ValidationError({
+                    "ubicacion": "La ubicacion reportada esta fuera de la zona de competencia municipal."
+                })
+            return attrs
+
 
     def create(self, validated_data):
         lat = validated_data.pop('latitud')
@@ -109,6 +127,3 @@ class PerfilSerializer(serializers.ModelSerializer):
 
     def get_total_reportes(self, obj):
         return obj.incidencias.count()
-
-
-    #probar una cosinha jejejeje

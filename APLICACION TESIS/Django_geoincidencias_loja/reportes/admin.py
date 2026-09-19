@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.gis import admin as gis_admin
 from django.contrib.gis.forms.widgets import OSMWidget
-from .models import Incidencia, Usuario
+from .models import Incidencia, Usuario, GeocercaMunicipal
 
 
 # ============================================
@@ -53,3 +53,20 @@ class IncidenciaAdmin(gis_admin.GISModelAdmin):
         if db_field.name == 'ubicacion':
             kwargs['widget'] = OSMWidget(**self.gis_widget_kwargs)
         return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+# ============================================
+# 3. ADMINISTRACIÓN DE GEOCERCAS (RF007)
+# ============================================
+@admin.register(GeocercaMunicipal)
+class GeocercaMunicipalAdmin(gis_admin.GISModelAdmin):
+    list_display = ('nombre', 'activa', 'fecha_creacion')
+    list_filter = ('activa',)
+    search_fields = ('nombre',)
+
+    gis_widget_kwargs = {
+        'attrs': {
+            'default_lon': -79.2239,
+            'default_lat': -4.0085,
+            'default_zoom': 13,
+        }
+    }
