@@ -23,6 +23,24 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
     _cargarIncidencias();
   }
 
+  // Función para determinar el color del pin según el estado
+  Color _getColorPorEstado(String? estado) {
+    if (estado == null) return Colors.teal;
+    final e = estado.toLowerCase();
+    if (e.contains('recibido') ||
+        e.contains('pendiente') ||
+        e.contains('nuevo')) {
+      return Colors.red;
+    } else if (e.contains('proceso') || e.contains('revision')) {
+      return Colors.orange;
+    } else if (e.contains('resuelto') ||
+        e.contains('finalizado') ||
+        e.contains('cerrado')) {
+      return Colors.green;
+    }
+    return Colors.teal; // Color por defecto
+  }
+
   Future<void> _cargarIncidencias() async {
     try {
       final response = await http.get(
@@ -40,6 +58,8 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
 
             final double lat = (coords[1] is num) ? coords[1].toDouble() : 0.0;
             final double lng = (coords[0] is num) ? coords[0].toDouble() : 0.0;
+            final String estado = props['estado'] ?? 'Desconocido';
+            final Color colorPin = _getColorPorEstado(estado);
 
             return Marker(
               point: LatLng(lat, lng),
@@ -47,11 +67,7 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
               height: 40,
               child: GestureDetector(
                 onTap: () => _mostrarDetalle(props),
-                child: const Icon(
-                  Icons.location_pin,
-                  color: Colors.teal,
-                  size: 40,
-                ),
+                child: Icon(Icons.location_pin, color: colorPin, size: 45),
               ),
             );
           }).toList();
@@ -73,28 +89,133 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
   }
 
   void _mostrarDetalle(Map<String, dynamic> props) {
+    final String? fotoUrl = props['foto_url'];
+    final String estado = props['estado'] ?? 'Desconocido';
+    final Color colorEstado = _getColorPorEstado(estado);
+
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              props['categoria'] ?? 'Sin categoría',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(props['descripcion'] ?? 'Sin descripción'),
-            if (props['fecha_reporte'] != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                '📅 ${props['fecha_reporte']}',
-                style: TextStyle(color: Colors.grey.shade600),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Encabezado con Categoría y Estado
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      props['categoria'] ?? 'Sin categoría',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorEstado.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: colorEstado, width: 1.5),
+                    ),
+                    child: Text(
+                      estado,
+                      style: TextStyle(
+                        color: colorEstado,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 12),
+
+              // Foto de la incidencia (si existe)
+              if (fotoUrl != null && fotoUrl.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    fotoUrl,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 200,
+                        color: Colors.grey.shade200,
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.broken_image,
+                              size: 50,
+                              color: Colors.grey,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Error al cargar imagen',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 200,
+                        color: Colors.grey.shade200,
+                        child: const Center(child: CircularProgressIndicator()),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Descripción
+              const Text(
+                'Descripción:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                props['descripcion'] ?? 'Sin descripción',
+                style: const TextStyle(fontSize: 15),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Fecha
+              Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    props['fecha_reporte'] ?? 'Fecha desconocida',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -127,7 +248,6 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
               ),
               children: [
                 TileLayer(
-                  // ️ OPENSTREETMAP - GRATIS Y SIN API KEY
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.example.geoincidencias_loja',
                 ),
