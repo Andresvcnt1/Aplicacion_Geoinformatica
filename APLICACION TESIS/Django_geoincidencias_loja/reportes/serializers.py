@@ -25,7 +25,12 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         }
 
     def get_usuario_nombre(self, obj):
-        return obj.usuario.username if obj.usuario else 'Ciudadano anónimo'
+        if obj.usuario:
+            nombre = obj.usuario.first_name or ''
+            apellido = obj.usuario.last_name or ''
+            nombre_completo = f"{nombre} {apellido}".strip()
+            return nombre_completo if nombre_completo else obj.usuario.username
+        return 'Ciudadano anónimo'
 
     def get_usuario_foto(self, obj):
         request = self.context.get('request')
@@ -37,7 +42,6 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         lat = attrs.get('latitud')
         lng = attrs.get('longitud')
 
-        # CORRECCIÓN: Validar si TENEMOS coordenadas (no si faltan)
         if lat is not None and lng is not None:
             punto = Point(lng, lat, srid=4326)
             dentro_de_geocerca = GeocercaMunicipal.objects.filter(
@@ -50,7 +54,6 @@ class IncidenciaSerializer(serializers.ModelSerializer):
                     "ubicacion": "La ubicación reportada está fuera de la zona de competencia municipal."
                 })
         
-        # CORRECCIÓN: SIEMPRE debemos retornar los attrs al final
         return attrs
 
     def create(self, validated_data):
@@ -73,9 +76,6 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
             'username': {'required': False},
         }
 
-    # CORRECCIÓN: Sacado de la indentación de Meta. 
-    # (Nota: Este serializer no maneja lat/lng, así que esta validación sobra aquí, 
-    # pero la dejo limpia por si la necesitas a futuro).
     def validate(self, attrs):
         if attrs.get('password') != attrs.get('password_confirm'):
             raise serializers.ValidationError({"password": "Las contraseñas no coinciden."})
@@ -85,8 +85,19 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
         cedula = validated_data.get('cedula')
+        
+        # Generar username automático
         validated_data['username'] = f"usuario_{cedula}"
-        user = Usuario.objects.create_user(password=password, **validated_data)
+        
+        # Crear usuario
+        user = Usuario.objects.create_user(
+            password=password,
+            cedula=cedula,
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            email=validated_data.get('email', ''),
+            metodo_verificacion=validated_data.get('metodo_verificacion', 'huella')
+        )
         return user
 
 
