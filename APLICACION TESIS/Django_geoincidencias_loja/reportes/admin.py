@@ -37,7 +37,7 @@ class UsuarioAdmin(UserAdmin):
 class CartoDBWidget(OSMWidget):
     """Widget de mapa usando CartoDB en vez del OSM directo,
     para evitar el bloqueo por política de uso de OpenStreetMap."""
-    template_name = 'gis/admin/cartodb-osm.html'
+    template_name = 'cartodb-osm.html'
 
 @admin.register(Incidencia)
 class IncidenciaAdmin(gis_admin.GISModelAdmin):
