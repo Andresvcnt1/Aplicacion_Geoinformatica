@@ -19,11 +19,11 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'ubicacion': {'required': False, 'allow_null': True},
-            'foto': {'required': False, 'allow_null': True},
+            'foto': {'required': True, 'allow_null': False},
             'fecha_creacion': {'read_only': True},
             'estado': {'read_only': False},
         }
-
+    
     # CAMBIO: Mostrar Nombre y Apellido en las publicaciones
     def get_usuario_nombre(self, obj):
         if obj.usuario:
@@ -119,7 +119,7 @@ class PerfilSerializer(serializers.ModelSerializer):
     def get_foto_perfil_url(self, obj):
         request = self.context.get('request')
         if obj.foto_perfil and request:
-            return request.build_absolute_uri(obj.usuario.foto_perfil.url)
+            return request.build_absolute_uri(obj.foto_perfil.url)
         return None
 
     def get_total_reportes(self, obj):
