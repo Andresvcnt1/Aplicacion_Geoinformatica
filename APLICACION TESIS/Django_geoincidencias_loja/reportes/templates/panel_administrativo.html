@@ -37,11 +37,31 @@
 <body>
   <header>
     <h1>🗺️ Panel Administrativo — GeoIncidencias Loja</h1>
-    <div>
-      <label for="filtroCategoria">Filtrar:</label>
-      <select id="filtroCategoria">
-        <option value="todas">Todas las categorías</option>
-      </select>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+      <div>
+        <label for="filtroCategoria">Categoría:</label>
+        <select id="filtroCategoria">
+          <option value="todas">Todas las categorías</option>
+        </select>
+      </div>
+      <div>
+        <label for="filtroEstado">Estado:</label>
+        <select id="filtroEstado">
+          <option value="todos">Todos los estados</option>
+          <option value="Recibido">Recibido</option>
+          <option value="En proceso">En proceso</option>
+          <option value="Solucionado">Solucionado</option>
+        </select>
+      </div>
+      <div>
+        <label for="filtroFechaDesde">Desde:</label>
+        <input type="date" id="filtroFechaDesde">
+      </div>
+      <div>
+        <label for="filtroFechaHasta">Hasta:</label>
+        <input type="date" id="filtroFechaHasta">
+      </div>
+      <button class="btn-guardar" onclick="limpiarFiltros()" style="margin-top: 0;">Limpiar</button>
     </div>
   </header>
 
@@ -148,14 +168,51 @@
     }
 
     function aplicarFiltro() {
-      const valor = document.getElementById('filtroCategoria').value;
-      valor === 'todas'
-        ? pintarMapa(datosCompletos)
-        : pintarMapa({
-            ...datosCompletos,
-            features: datosCompletos.features.filter(f => f.properties.categoria === valor)
-          });
+      const categoria = document.getElementById('filtroCategoria').value;
+      const estado = document.getElementById('filtroEstado').value;
+      const fechaDesde = document.getElementById('filtroFechaDesde').value;
+      const fechaHasta = document.getElementById('filtroFechaHasta').value;
+
+      let features = datosCompletos.features;
+
+      if (categoria !== 'todas') {
+        features = features.filter(f => f.properties.categoria === categoria);
+      }
+
+      if (estado !== 'todos') {
+        features = features.filter(f => f.properties.estado === estado);
+      }
+
+      if (fechaDesde) {
+        features = features.filter(f => {
+          const fecha = (f.properties.fecha_reporte || '').split(' ')[0];
+          return fecha >= fechaDesde;
+        });
+      }
+
+      if (fechaHasta) {
+        features = features.filter(f => {
+          const fecha = (f.properties.fecha_reporte || '').split(' ')[0];
+          return fecha <= fechaHasta;
+        });
+      }
+
+      pintarMapa({ ...datosCompletos, features });
     }
+
+    function limpiarFiltros() {
+      document.getElementById('filtroCategoria').value = 'todas';
+      document.getElementById('filtroEstado').value = 'todos';
+      document.getElementById('filtroFechaDesde').value = '';
+      document.getElementById('filtroFechaHasta').value = '';
+      aplicarFiltro();
+    }
+
+    document.getElementById('filtroCategoria').addEventListener('change', aplicarFiltro);
+    document.getElementById('filtroEstado').addEventListener('change', aplicarFiltro);
+    document.getElementById('filtroFechaDesde').addEventListener('change', aplicarFiltro);
+    document.getElementById('filtroFechaHasta').addEventListener('change', aplicarFiltro);
+    cargarDatos();
 
     document.getElementById('filtroCategoria').addEventListener('change', aplicarFiltro);
     cargarDatos();
