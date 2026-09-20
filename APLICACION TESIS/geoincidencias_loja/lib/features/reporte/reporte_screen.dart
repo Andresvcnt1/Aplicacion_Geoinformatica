@@ -85,16 +85,19 @@ class _ReporteScreenState extends State<ReporteScreen> {
         source: ImageSource.camera,
         imageQuality: 70,
       );
-      if (imagen != null && mounted)
+      if (imagen != null && mounted) {
         setState(() => _imagenSeleccionada = File(imagen.path));
+      }
     } finally {
       if (mounted) setState(() => _cargandoFoto = false);
     }
   }
 
   Future<void> _enviarReporte() async {
+    // 1. Validar campos de texto (categoría, descripción)
     if (!_formKey.currentState!.validate()) return;
 
+    // 2. ✅ VALIDACIÓN DE FOTO OBLIGATORIA (RF003)
     if (_imagenSeleccionada == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -104,9 +107,10 @@ class _ReporteScreenState extends State<ReporteScreen> {
           backgroundColor: Colors.orange,
         ),
       );
-      return;
+      return; // Detiene la ejecución aquí, no llega al servidor
     }
 
+    // 3. Validar biometría
     final bool autenticado = await _biometricService.autenticarUsuario();
     if (!autenticado) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,6 +120,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
     }
 
     setState(() => _estaEnviando = true);
+
     try {
       final response = await _apiService.enviarReporte(
         categoria: _categoriaSeleccionada,
@@ -124,11 +129,13 @@ class _ReporteScreenState extends State<ReporteScreen> {
         longitud: _posicionActual!.longitude,
         foto: _imagenSeleccionada,
       );
+
       if (!mounted) return;
+
       if (response.statusCode == 201 || response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
+          const SnackBar(
+            content: Row(
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 8),
@@ -139,6 +146,8 @@ class _ReporteScreenState extends State<ReporteScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+
+        // Limpiar formulario
         _formKey.currentState!.reset();
         setState(() {
           _descripcionController.clear();
@@ -148,9 +157,16 @@ class _ReporteScreenState extends State<ReporteScreen> {
           _estadoGps = 'Presiona el botón para obtener la ubicación';
         });
       } else {
+        // Manejo de errores del servidor (ej: fuera de geocerca = 400)
+        String mensajeError = 'Error del servidor (${response.statusCode})';
+        if (response.statusCode == 400) {
+          mensajeError =
+              '⚠️ No se pudo enviar. Verifica que:\n1. La foto esté adjunta\n2. Estés dentro del área municipal';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error servidor (${response.statusCode})'),
+            content: Text(mensajeError),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -176,7 +192,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔑 CLAVE RESPONSIVO: Ajuste automático al teclado virtual
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
@@ -238,9 +253,12 @@ class _ReporteScreenState extends State<ReporteScreen> {
                   helperText: 'Mínimo 10 caracteres',
                 ),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty)
+                  if (value == null || value.trim().isEmpty) {
                     return 'La descripción es obligatoria';
-                  if (value.trim().length < 10) return 'Mínimo 10 caracteres';
+                  }
+                  if (value.trim().length < 10) {
+                    return 'Mínimo 10 caracteres';
+                  }
                   return null;
                 },
               ),
@@ -256,7 +274,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
               ),
               const SizedBox(height: 8),
               AspectRatio(
-                // 🔑 Mantiene proporción 4:3 en cualquier pantalla
                 aspectRatio: 4 / 3,
                 child: GestureDetector(
                   onTap: _cargandoFoto ? null : _seleccionarImagen,
@@ -443,10 +460,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
 
               // --- Botón Enviar ---
               SizedBox(
-                height: _getResponsiveHeight(
-                  context,
-                  0.06,
-                ), // 6% de la altura de pantalla
+                height: _getResponsiveHeight(context, 0.06),
                 child: ElevatedButton(
                   onPressed: _estaEnviando ? null : _enviarReporte,
                   style: ElevatedButton.styleFrom(
@@ -477,10 +491,10 @@ class _ReporteScreenState extends State<ReporteScreen> {
                             ),
                           ],
                         )
-                      : Text(
+                      : const Text(
                           'ENVIAR REPORTE CIUDADANO',
                           style: TextStyle(
-                            fontSize: _getResponsiveFontSize(context, 16),
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -488,7 +502,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                 ),
               ),
 
-              //  ESPACIO PARA EL TECLADO VIRTUAL
+              // Espacio para el teclado virtual
               SizedBox(height: bottomInset + 20),
             ],
           ),
