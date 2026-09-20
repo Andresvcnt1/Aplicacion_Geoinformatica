@@ -94,13 +94,27 @@ class _ReporteScreenState extends State<ReporteScreen> {
 
   Future<void> _enviarReporte() async {
     if (!_formKey.currentState!.validate()) return;
-    final bool autenticado = await _biometricService.autenticarUsuario();
-    if (!autenticado) {
+
+    if (_imagenSeleccionada == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(' Identidad no verificada.')),
+        const SnackBar(
+          content: Text(
+            '⚠️ Debes tomar o seleccionar una foto como evidencia.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
+
+    final bool autenticado = await _biometricService.autenticarUsuario();
+    if (!autenticado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ Identidad no verificada.')),
+      );
+      return;
+    }
+
     setState(() => _estaEnviando = true);
     try {
       final response = await _apiService.enviarReporte(
