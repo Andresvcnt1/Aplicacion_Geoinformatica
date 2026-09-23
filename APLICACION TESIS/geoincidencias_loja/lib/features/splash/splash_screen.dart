@@ -22,12 +22,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _decidirRuta() async {
     final prefs = await SharedPreferences.getInstance();
-    final sesionActiva = prefs.getBool('sesion_activa') ?? false;
+
+    // ✅ CAMBIO CLAVE: Verificamos la existencia del token en lugar de 'sesion_activa'
+    final token = prefs.getString('token');
 
     if (!mounted) return;
 
-    if (!sesionActiva) {
-      // Nunca ha iniciado sesión -> pantalla de login
+    // Si no hay token, el usuario no ha iniciado sesión o cerró sesión
+    if (token == null || token.isEmpty) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -35,18 +37,19 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // Ya hay sesión guardada: pedimos biometría en vez de login completo
+    // ✅ Hay token válido: pedimos biometría para entrar directamente
     final bool autenticado = await _verificarBiometria();
 
     if (!mounted) return;
 
     if (autenticado) {
+      // Biometría exitosa -> Home directo
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } else {
-      // Si la biometría falla o no está disponible, pedimos login normal
+      // Biometría fallida, cancelada o no disponible -> Ir al Login para usar contraseña
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -62,14 +65,14 @@ class _SplashScreenState extends State<SplashScreen> {
       final bool isDeviceSupported = await localAuth.isDeviceSupported();
 
       if (!canCheckBiometrics || !isDeviceSupported) {
-        // Sin biometría disponible: dejamos pasar al login normal
+        // Sin biometría disponible: dejamos pasar al login normal por seguridad
         return false;
       }
 
       final bool didAuthenticate = await localAuth.authenticate(
         localizedReason:
             'Usa tu huella, rostro o PIN para acceder a GeoIncidencias Loja',
-        biometricOnly: false,
+        biometricOnly: false, // Permite usar PIN/patrón si la huella falla
         persistAcrossBackgrounding: true,
       );
 

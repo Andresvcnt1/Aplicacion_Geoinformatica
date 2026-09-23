@@ -24,6 +24,10 @@ class _RegistroScreenState extends State<RegistroScreen> {
   bool _cargando = false;
   String _metodoBiometrico = 'huella';
 
+  // ✅ NUEVO: Variables para mostrar/ocultar contraseñas
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
   // Validar cédula ecuatoriana
   bool validarCedula(String cedula) {
     if (cedula.length != 10 || !RegExp(r'^\d+$').hasMatch(cedula)) return false;
@@ -52,9 +56,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse(
-          '${ApiConstants.baseUrl}/api/registro/',
-        ), // Ajusta si tu endpoint es /api/auth/register/
+        Uri.parse('${ApiConstants.baseUrl}/api/registro/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'cedula': _cedulaController.text.trim(),
@@ -75,33 +77,32 @@ class _RegistroScreenState extends State<RegistroScreen> {
         await prefs.setBool('usuario_registrado', true);
 
         // ==========================================================
-        // ✅ NUEVO: Auto-login para obtener y guardar los tokens JWT
+        // ✅ AUTO-LOGIN CORREGIDO (usa 'cedula' en lugar de 'username')
         // ==========================================================
         final loginResponse = await http.post(
-          Uri.parse(
-            '${ApiConstants.baseUrl}/api/auth/login/',
-          ), // Verifica que este sea tu endpoint de login
+          Uri.parse('${ApiConstants.baseUrl}/api/login/'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
-            // ⚠️ IMPORTANTE: Si tu Django usa 'cedula' como USERNAME_FIELD,
-            // cambia la clave 'username' por 'cedula' aquí abajo.
-            'username': _cedulaController.text.trim(),
+            'cedula': _cedulaController.text.trim(), // <-- CAMBIO CLAVE AQUÍ
             'password': _passwordController.text,
           }),
         );
 
+        debugPrint('--- RESPUESTA AUTO-LOGIN ---');
+        debugPrint('Status: ${loginResponse.statusCode}');
+        debugPrint('Body: ${loginResponse.body}');
+        debugPrint('--------------------------');
+
         if (loginResponse.statusCode == 200) {
           final loginData = jsonDecode(loginResponse.body);
-          // Guarda los tokens (ajusta 'access'/'refresh' si tu backend devuelve 'token' directamente)
-          await prefs.setString(
-            'token',
-            loginData['access'] ?? loginData['token'] ?? '',
-          );
-          await prefs.setString('refresh_token', loginData['refresh'] ?? '');
+          final token = loginData['access'] ?? loginData['token'] ?? '';
+          final refreshToken = loginData['refresh'] ?? '';
+
+          await prefs.setString('token', token);
+          await prefs.setString('refresh_token', refreshToken);
+          debugPrint('✅ Token guardado exitosamente');
         } else {
-          debugPrint(
-            '⚠️ Auto-login falló tras registro: ${loginResponse.body}',
-          );
+          debugPrint('⚠️ Auto-login falló. El perfil no cargará sin token.');
         }
         // ==========================================================
 
@@ -115,20 +116,9 @@ class _RegistroScreenState extends State<RegistroScreen> {
         String mensaje = 'Error en el registro';
 
         if (error is Map) {
-          if (error.containsKey('cedula')) {
-            mensaje = 'Cédula ya registrada o inválida';
-          } else if (error.containsKey('username')) {
-            mensaje = 'Nombre de usuario ya existe';
-          } else if (error.containsKey('email')) {
-            mensaje = 'Email ya registrado';
-          } else if (error.containsKey('password')) {
-            mensaje = 'Contraseña no válida';
-          } else {
-            // Fallback para mostrar el primer error que devuelva Django
-            mensaje = error.values.first.toString();
-          }
+          mensaje = error.values.first
+              .toString(); // Muestra el error real de Django
         }
-
         _showSnackBar('❌ $mensaje', Colors.red);
       }
     } catch (e) {
@@ -164,7 +154,6 @@ class _RegistroScreenState extends State<RegistroScreen> {
           ? 'Usa tu reconocimiento facial o PIN para registrar tu cuenta'
           : 'Usa tu huella digital o PIN para registrar tu cuenta';
 
-      // ✅ API actualizada para local_auth 3.x
       final bool didAuthenticate = await localAuth.authenticate(
         localizedReason: mensaje,
         biometricOnly: false,
@@ -173,9 +162,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
       return didAuthenticate;
     } on LocalAuthException catch (e) {
-      debugPrint(
-        'Código de error biometría: ${e.code.name}',
-      ); // <- esto te dirá el nombre exacto en consola
+      debugPrint('Código de error biometría: ${e.code.name}');
 
       if (e.code == LocalAuthExceptionCode.noBiometricHardware) {
         _showSnackBar(
@@ -302,14 +289,27 @@ class _RegistroScreenState extends State<RegistroScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    // Contraseña
+
+                    // ✅ Contraseña con botón de ver/ocultar
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
                         labelText: 'Contraseña',
-                        prefixIcon: Icon(Icons.lock),
-                        border: OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
                       ),
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Ingresa contraseña';
@@ -319,16 +319,31 @@ class _RegistroScreenState extends State<RegistroScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Confirmar contraseña
+                    // ✅ Confirmar contraseña con botón de ver/ocultar
                     TextFormField(
                       controller: _confirmPasswordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
+                      obscureText: _obscureConfirmPassword,
+                      decoration: InputDecoration(
                         labelText: 'Confirmar contraseña',
-                        prefixIcon: Icon(Icons.lock_outline),
-                        border: OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirmPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscureConfirmPassword =
+                                  !_obscureConfirmPassword;
+                            });
+                          },
+                        ),
                       ),
                       validator: (v) {
+                        if (v == null || v.isEmpty)
+                          return 'Confirma tu contraseña';
                         if (v != _passwordController.text) {
                           return 'Las contraseñas no coinciden';
                         }
