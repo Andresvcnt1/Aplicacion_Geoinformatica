@@ -52,7 +52,9 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/api/registro/'),
+        Uri.parse(
+          '${ApiConstants.baseUrl}/api/registro/',
+        ), // Ajusta si tu endpoint es /api/auth/register/
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'cedula': _cedulaController.text.trim(),
@@ -68,10 +70,40 @@ class _RegistroScreenState extends State<RegistroScreen> {
       );
 
       if (response.statusCode == 201) {
-        // Guardar localmente que ya está registrado
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('cedula', _cedulaController.text.trim());
         await prefs.setBool('usuario_registrado', true);
+
+        // ==========================================================
+        // ✅ NUEVO: Auto-login para obtener y guardar los tokens JWT
+        // ==========================================================
+        final loginResponse = await http.post(
+          Uri.parse(
+            '${ApiConstants.baseUrl}/api/auth/login/',
+          ), // Verifica que este sea tu endpoint de login
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            // ⚠️ IMPORTANTE: Si tu Django usa 'cedula' como USERNAME_FIELD,
+            // cambia la clave 'username' por 'cedula' aquí abajo.
+            'username': _cedulaController.text.trim(),
+            'password': _passwordController.text,
+          }),
+        );
+
+        if (loginResponse.statusCode == 200) {
+          final loginData = jsonDecode(loginResponse.body);
+          // Guarda los tokens (ajusta 'access'/'refresh' si tu backend devuelve 'token' directamente)
+          await prefs.setString(
+            'token',
+            loginData['access'] ?? loginData['token'] ?? '',
+          );
+          await prefs.setString('refresh_token', loginData['refresh'] ?? '');
+        } else {
+          debugPrint(
+            '⚠️ Auto-login falló tras registro: ${loginResponse.body}',
+          );
+        }
+        // ==========================================================
 
         if (!mounted) return;
         Navigator.pushReplacement(
@@ -91,6 +123,9 @@ class _RegistroScreenState extends State<RegistroScreen> {
             mensaje = 'Email ya registrado';
           } else if (error.containsKey('password')) {
             mensaje = 'Contraseña no válida';
+          } else {
+            // Fallback para mostrar el primer error que devuelva Django
+            mensaje = error.values.first.toString();
           }
         }
 
