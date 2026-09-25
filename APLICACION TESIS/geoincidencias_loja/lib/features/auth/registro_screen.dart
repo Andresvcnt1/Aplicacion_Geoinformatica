@@ -312,8 +312,18 @@ class _RegistroScreenState extends State<RegistroScreen> {
                         ),
                       ),
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Ingresa contraseña';
-                        if (v.length < 6) return 'Mínimo 6 caracteres';
+                        if (v == null || v.isEmpty)
+                          return 'Ingresa una contraseña';
+                        if (v.length < 8)
+                          return 'La contraseña debe tener al menos 8 caracteres';
+                        if (!RegExp(r'[A-Za-z]').hasMatch(v))
+                          return 'Debe contener al menos una letra (no solo números)';
+                        if (RegExp(
+                          r'^(12345678|password|qwerty123)$',
+                          caseSensitive: false,
+                        ).hasMatch(v)) {
+                          return 'Esta contraseña es demasiado común y no es segura';
+                        }
                         return null;
                       },
                     ),
