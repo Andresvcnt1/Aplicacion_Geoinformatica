@@ -75,7 +75,7 @@ def panel_administrativo(request):
     return render(request, 'panel_administrativo.html')
 
 class ActualizarEstadoView(APIView):
-    """RF008: Permite al personal técnico actualizar el estado de una incidencia."""
+    """Permite al personal técnico actualizar el estado de una incidencia."""
     permission_classes = [IsAdminUser]
 
     def post(self, request, inc_id):
