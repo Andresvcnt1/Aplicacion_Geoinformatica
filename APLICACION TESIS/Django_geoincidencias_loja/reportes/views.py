@@ -101,7 +101,7 @@ def actualizar_estado(request, inc_id):
 
     incidencia.estado = nuevo_estado
     incidencia.save(update_fields=['estado'])
-    return JsonResponse({'ok': True, 'id': incidencia.id, 'estado': incidencia})
+    return JsonResponse({'ok': True, 'id': incidencia.id, 'estado': incidencia.estado})
 
 class RegistroView(generics.CreateAPIView):
     """RF004: Registro de ciudadano con validación biométrica"""
@@ -119,32 +119,35 @@ class RegistroView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 class LoginView(APIView):
-    """Login administrativo mediante username y contraseña, devuelve tokens JWT."""
+    """Login de ciudadano mediante cédula y contraseña, devuelve tokens JWT."""
     permission_classes = [AllowAny]
 
     def post(self, request):
-        username = request.data.get('username')
+        cedula = request.data.get('cedula')
         password = request.data.get('password')
 
-        if not username or not password:
+        if not cedula or not password:
             return Response(
-                {'error': 'Usuario y contraseña son requeridos'},
+                {'error': 'Cédula y contraseña son requeridas'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        user = authenticate(request, username=username, password=password)
-        if user is None or not user.is_active or not user.is_staff:
-            return Response(
-                {'error': 'Credenciales inválidas o la cuenta no es administradora'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+        try:
+            usuario = Usuario.objects.get(cedula=cedula)
+        except Usuario.DoesNotExist:
+            return Response({'error': 'Credenciales inválidas'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user = authenticate(request, username=usuario.username, password=password)
+        if user is None:
+            return Response({'error': 'Credenciales inválidas'}, status=status.HTTP_401_UNAUTHORIZED)
 
         refresh = RefreshToken.for_user(user)
-
         return Response({
             'access': str(refresh.access_token),
             'refresh': str(refresh),
+            'cedula': user.cedula,
             'username': user.username,
+            'metodo_verificacion': user.metodo_verificacion,
         }, status=status.HTTP_200_OK)
 
 
@@ -171,3 +174,40 @@ class PerfilView(APIView):
             request.user.save(update_fields=['foto_perfil'])
         serializer = PerfilSerializer(request.user, context={'request': request})
         return Response(serializer.data)
+
+class AdminLoginView(APIView):
+    """Login para el panel administrativo, autentica por username (no cédula).
+    Solo permite acceso a usuarios staff o superusuarios."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response(
+                {'error': 'Usuario y contraseña son requeridos'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = authenticate(username=username, password=password)
+
+        if user is None:
+            return Response(
+                {'error': 'Credenciales inválidas'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if not (user.is_staff or user.is_superuser):
+            return Response(
+                {'error': 'No tiene permisos de administrador'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'username': user.username,
+            'is_superuser': user.is_superuser,
+        })

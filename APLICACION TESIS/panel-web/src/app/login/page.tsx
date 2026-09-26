@@ -2,12 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import api from '@/lib/api';
 
 export default function LoginPage() {
-  // Cambiamos el estado a 'usuario' para que sea genérico
-  const [usuario, setUsuario] = useState(''); 
+  const [cedula, setCedula] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,8 +17,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // ✅ CLAVE: Django espera estrictamente 'cedula', NO 'username'
       const res = await api.post('/login/', { 
-        username: usuario.trim(), 
+        cedula: cedula.trim(), 
         password 
       });
 
@@ -29,14 +28,11 @@ export default function LoginPage() {
       
       router.push('/dashboard');
       
-    } catch (err: unknown) {
-        if (axios.isAxiosError(err) && err.response?.data) {
-          const data = err.response.data as {
-            error?: string;
-            detail?: string;
-            non_field_errors?: string[];
-          };
-        setError(data.error || data.detail || data.non_field_errors?.[0] || 'Credenciales inválidas');
+    } catch (err: any) {
+      if (err.response && err.response.data) {
+        const data = err.response.data;
+        // Mostramos el error exacto de Django (ej: "Este campo es requerido" o "No existe")
+        setError(data.cedula?.[0] || data.detail || data.non_field_errors?.[0] || 'Credenciales inválidas');
       } else {
         setError('Error de conexión con el servidor');
       }
@@ -62,14 +58,15 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-gray-700 text-sm font-bold mb-2">
-              Usuario administrador
+              Cédula (10 dígitos)
             </label>
             <input
               type="text"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
+              maxLength={10}
+              value={cedula}
+              onChange={(e) => setCedula(e.target.value.replace(/\D/g, ''))} // Solo permite números
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00796B] text-gray-700"
-              placeholder="Ingrese su usuario (por ejemplo, GeoAdmin)"
+              placeholder="Ej: 1101234567"
               required
             />
           </div>

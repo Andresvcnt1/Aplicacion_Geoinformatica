@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/admin/access/', views.AdminAccessView.as_view(), name='admin-access'),
     path('api/perfil/', views.PerfilView.as_view(), name='perfil'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/admin-login/', views.AdminLoginView.as_view(), name='admin_login'),
 ]
 
 if settings.DEBUG:
