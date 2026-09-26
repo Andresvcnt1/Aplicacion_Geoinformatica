@@ -15,7 +15,7 @@ from .serializers import IncidenciaSerializer
 from rest_framework import generics, status
 from rest_framework.response import Response
 from .serializers import RegistroUsuarioSerializer
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from .serializers import RegistroUsuarioSerializer, PerfilSerializer
 
 @ensure_csrf_cookie
@@ -119,31 +119,23 @@ class RegistroView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 class LoginView(APIView):
-    """Login de ciudadano mediante cédula y contraseña, devuelve tokens JWT."""
+    """Login administrativo mediante username y contraseña, devuelve tokens JWT."""
     permission_classes = [AllowAny]
 
     def post(self, request):
-        cedula = request.data.get('cedula')
+        username = request.data.get('username')
         password = request.data.get('password')
 
-        if not cedula or not password:
+        if not username or not password:
             return Response(
-                {'error': 'Cédula y contraseña son requeridas'},
+                {'error': 'Usuario y contraseña son requeridos'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            usuario = Usuario.objects.get(cedula=cedula)
-        except Usuario.DoesNotExist:
+        user = authenticate(request, username=username, password=password)
+        if user is None or not user.is_active or not user.is_staff:
             return Response(
-                {'error': 'Credenciales inválidas'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        user = authenticate(username=usuario.username, password=password)
-        if user is None:
-            return Response(
-                {'error': 'Credenciales inválidas'},
+                {'error': 'Credenciales inválidas o la cuenta no es administradora'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
@@ -152,10 +144,16 @@ class LoginView(APIView):
         return Response({
             'access': str(refresh.access_token),
             'refresh': str(refresh),
-            'cedula': user.cedula,
             'username': user.username,
-            'metodo_verificacion': user.metodo_verificacion,
         }, status=status.HTTP_200_OK)
+
+
+class AdminAccessView(APIView):
+    """Confirma que el JWT pertenece a una cuenta administrativa activa."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        return Response({'username': request.user.username})
 
 class PerfilView(APIView):
     """Perfil del ciudadano logueado: datos, foto y estadísticas."""

@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/incidencias/<int:inc_id>/estado/', views.actualizar_estado, name='actualizar_estado'),   
     path('api/registro/', views.RegistroView.as_view(), name='registro'), 
     path('api/login/', views.LoginView.as_view(), name='login'), 
+    path('api/admin/access/', views.AdminAccessView.as_view(), name='admin-access'),
     path('api/perfil/', views.PerfilView.as_view(), name='perfil'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
