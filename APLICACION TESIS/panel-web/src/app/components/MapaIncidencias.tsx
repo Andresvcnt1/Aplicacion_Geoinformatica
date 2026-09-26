@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -16,8 +16,9 @@ interface Incidencia {
   categoria: string;
   descripcion: string;
   estado: string;
+  foto?: string;
   geometry?: { type: string; coordinates: [number, number] };
-  ubicacion?: string; // Por si Django lo manda como texto
+  ubicacion?: { type: string; coordinates: [number, number] } | string;
 }
 
 const getColor = (estado: string) => {
@@ -27,13 +28,17 @@ const getColor = (estado: string) => {
   return '#6b7280';
 };
 
-// Función para extraer coordenadas aunque vengan como texto "SRID=4326;POINT(lng lat)"
 const getCoordinates = (inc: Incidencia): [number, number] | null => {
+  // Caso real: ubicacion llega como objeto GeoJSON {"type":"Point","coordinates":[lng,lat]}
+  if (inc.ubicacion && typeof inc.ubicacion === 'object' && 'coordinates' in inc.ubicacion) {
+    const [lng, lat] = (inc.ubicacion as { coordinates: [number, number] }).coordinates;
+    return [lat, lng];
+  }
   if (inc.geometry?.coordinates) {
     const [lng, lat] = inc.geometry.coordinates;
     return [lat, lng];
   }
-  if (inc.ubicacion && inc.ubicacion.includes('POINT')) {
+  if (inc.ubicacion && typeof inc.ubicacion === 'string' && inc.ubicacion.includes('POINT')) {
     const match = inc.ubicacion.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/);
     if (match) {
       const lng = parseFloat(match[1]);
@@ -67,9 +72,16 @@ export default function MapaIncidencias({ data }: { data: Incidencia[] }) {
         return (
           <Marker key={inc.id} position={coords} icon={customIcon}>
             <Popup>
-              <b>{inc.categoria}</b><br />
-              {inc.descripcion || 'Sin descripción'}<br />
-              <i>Estado: {inc.estado}</i>
+                <b>{inc.categoria}</b><br />
+                {inc.descripcion || 'Sin descripción'}<br />
+                <i>Estado: {inc.estado}</i>
+                {inc.foto && (
+                    <img
+                    src={inc.foto}
+                    alt={`Evidencia: ${inc.categoria}`}
+                    style={{ marginTop: '6px', maxWidth: '180px', borderRadius: '6px', display: 'block' }}
+                    />
+                )}
             </Popup>
           </Marker>
         );
