@@ -1,5 +1,5 @@
 @import "tailwindcss";
-/* css-lsp-disable-next-line unknownAtRules */
+/* Tailwind CSS v4 directive: the editor may report this as an unknown at-rule. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
@@ -37,4 +37,19 @@ body {
 
 .leaflet-popup-content img {
   border-radius: 6px;
+}
+
+.leaflet-tooltip.cluster-label {
+  background: rgba(15, 23, 42, 0.85);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.leaflet-tooltip.cluster-label::before {
+  display: none;
 }

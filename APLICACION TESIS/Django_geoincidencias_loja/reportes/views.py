@@ -74,35 +74,34 @@ def panel_administrativo(request):
     """
     return render(request, 'panel_administrativo.html')
 
-@staff_member_required(login_url='/admin/login/')
-@require_POST
-def actualizar_estado(request, inc_id):
+class ActualizarEstadoView(APIView):
     """RF008: Permite al personal técnico actualizar el estado de una incidencia."""
-    try:
-        payload = json.loads(request.body)
-        nuevo_estado = payload.get('estado')
-    except (json.JSONDecodeError, AttributeError):
-        nuevo_estado = request.POST.get('estado')
+    permission_classes = [IsAdminUser]
 
-    if not nuevo_estado:
-        return JsonResponse({'error': 'Falta el campo estado'}, status=400)
+    def post(self, request, inc_id):
+        nuevo_estado = request.data.get('estado')
 
-    # Valida contra los choices reales de tu modelo (si existen)
-    field = Incidencia._meta.get_field('estado')
-    if field.choices:
-        permitidos = [str(c[0]) for c in field.choices]
-        if nuevo_estado not in permitidos:
-            return JsonResponse({'error': 'Estado no válido', 'permitidos': permitidos}, status=400)
+        if not nuevo_estado:
+            return Response({'error': 'Falta el campo estado'}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        incidencia = Incidencia.objects.get(id=inc_id)
-    except Incidencia.DoesNotExist:
-        return JsonResponse({'error': 'Incidencia no encontrada'}, status=404)
+        field = Incidencia._meta.get_field('estado')
+        if field.choices:
+            permitidos = [str(c[0]) for c in field.choices]
+            if nuevo_estado not in permitidos:
+                return Response(
+                    {'error': 'Estado no válido', 'permitidos': permitidos},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-    incidencia.estado = nuevo_estado
-    incidencia.save(update_fields=['estado'])
-    return JsonResponse({'ok': True, 'id': incidencia.id, 'estado': incidencia.estado})
+        try:
+            incidencia = Incidencia.objects.get(id=inc_id)
+        except Incidencia.DoesNotExist:
+            return Response({'error': 'Incidencia no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
+        incidencia.estado = nuevo_estado
+        incidencia.save(update_fields=['estado'])
+        return Response({'ok': True, 'id': incidencia.id, 'estado': incidencia.estado})
+    
 class RegistroView(generics.CreateAPIView):
     """RF004: Registro de ciudadano con validación biométrica"""
     serializer_class = RegistroUsuarioSerializer
