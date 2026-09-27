@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/perfil/', views.PerfilView.as_view(), name='perfil'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/admin-login/', views.AdminLoginView.as_view(), name='admin_login'),
+    path('api/geocercas-geojson/', views.geocercas_geojson, name='geocercas-geojson'),
 ]
 
 if settings.DEBUG:
