@@ -1,5 +1,4 @@
 @import "tailwindcss";
-/* Tailwind CSS v4 directive: the editor may report this as an unknown at-rule. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
@@ -52,4 +51,20 @@ body {
 
 .leaflet-tooltip.cluster-label::before {
   display: none;
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.dark .map-tiles-dark {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+
+.dark .map-tiles-dark .leaflet-marker-icon,
+.dark .map-tiles-dark .leaflet-popup,
+.dark .map-tiles-dark .custom-cluster-icon {
+  filter: invert(1) hue-rotate(180deg);
 }

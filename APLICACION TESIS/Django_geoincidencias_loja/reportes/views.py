@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from .serializers import RegistroUsuarioSerializer
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from .serializers import RegistroUsuarioSerializer, PerfilSerializer
+from .models import Usuario, Incidencia, GeocercaMunicipal
 
 @ensure_csrf_cookie
 @staff_member_required(login_url='/admin/login/')
@@ -40,6 +41,24 @@ class IncidenciasListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
+    
+    def geocercas_geojson(request):
+        """
+        Endpoint de apoyo/referencia: expone las geocercas municipales en GeoJSON
+        para visualización mientras se trazan límites (temporal, solo lectura).
+        """
+        features = []
+        for geo in GeocercaMunicipal.objects.all():
+            features.append({
+                "type": "Feature",
+                "geometry": json.loads(geo.area.geojson),
+                "properties": {
+                    "id": geo.id,
+                    "nombre": geo.nombre,
+                    "activa": geo.activa,
+                }
+            })
+        return JsonResponse({"type": "FeatureCollection", "features": features})
 
 def incidencias_geojson(request):
     """

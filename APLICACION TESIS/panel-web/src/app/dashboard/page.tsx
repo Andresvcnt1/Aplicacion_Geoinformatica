@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import api from '@/lib/api';
+import ReporteModal from '../components/ReporteModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface Incidencia {
@@ -156,9 +157,14 @@ function KpiStat({
 
 export default function DashboardPage() {
   const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
+  const [reporteSeleccionado, setReporteSeleccionado] = useState<Incidencia | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const router = useRouter();
+  const [filtroEstado, setFiltroEstado] = useState<'Todos' | 'Recibido' | 'En proceso' | 'Solucionado'>('Todos');
+
+const reportesFiltrados =
+  filtroEstado === 'Todos' ? incidencias : incidencias.filter((i) => i.estado === filtroEstado);
 
   useEffect(() => {
     if (!localStorage.getItem('access_token')) {
@@ -188,6 +194,66 @@ export default function DashboardPage() {
 
     void cargarIncidencias();
   }, [router]);
+
+  const actualizarEstadoLocal = (id: number, nuevoEstado: string) => {
+    setIncidencias((prev) =>
+      prev.map((inc) => (inc.id === id ? { ...inc, estado: nuevoEstado } : inc))
+    );
+    setReporteSeleccionado((prev) =>
+      prev && prev.id === id ? { ...prev, estado: nuevoEstado } : prev
+    );
+  };
+
+  const exportarCSV = () => {
+  const headers = ['ID', 'Categoría', 'Descripción', 'Reportado por', 'Estado', 'Fecha'];
+  const rows = reportesFiltrados.map((inc) => [
+    inc.id,
+    CATEGORIA_META[inc.categoria]?.label || inc.categoria,
+    (inc.descripcion || 'Sin descripción').replace(/"/g, '""'),
+    inc.usuario_nombre || 'Anónimo',
+    inc.estado,
+    inc.fecha_creacion ? new Date(inc.fecha_creacion).toLocaleString('es-EC') : '',
+  ]);
+  const csvContent = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${cell}"`).join(','))
+    .join('\n');
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `reportes_geoincidencias_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const exportarPDF = async () => {
+  const { default: jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
+
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text('GeoIncidencias Loja — Reporte de incidencias', 14, 16);
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text(`Generado: ${new Date().toLocaleString('es-EC')} · Filtro: ${filtroEstado}`, 14, 22);
+
+  autoTable(doc, {
+    startY: 28,
+    head: [['ID', 'Categoría', 'Descripción', 'Reportado por', 'Estado', 'Fecha']],
+    body: reportesFiltrados.map((inc) => [
+      inc.id,
+      CATEGORIA_META[inc.categoria]?.label || inc.categoria,
+      inc.descripcion || 'Sin descripción',
+      inc.usuario_nombre || 'Anónimo',
+      inc.estado,
+      inc.fecha_creacion ? new Date(inc.fecha_creacion).toLocaleDateString('es-EC') : '—',
+    ]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [51, 65, 85] },
+  });
+
+  doc.save(`reportes_geoincidencias_${new Date().toISOString().slice(0, 10)}.pdf`);
+};
 
   const cerrarSesion = () => {
     localStorage.removeItem('access_token');
@@ -301,67 +367,146 @@ export default function DashboardPage() {
         </section>
 
         <section className="mt-8 animate-enter" style={{ animationDelay: '340ms' }}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-lg font-semibold">Reportes recientes</h2>
-            <span className="text-sm text-slate-500 dark:text-slate-400">{incidencias.length} registros</span>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="font-display text-lg font-semibold">Reportes</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500 dark:text-slate-400">{incidencias.length} registros</span>
+              <button
+                type="button"
+                onClick={exportarCSV}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                CSV
+              </button>
+              <button
+                type="button"
+                onClick={exportarPDF}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                PDF
+              </button>
+            </div>
           </div>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Categoría</th>
-                  <th className="px-4 py-3 font-medium">Descripción</th>
-                  <th className="px-4 py-3 font-medium">Reportado por</th>
-                  <th className="px-4 py-3 font-medium">Estado</th>
-                  <th className="px-4 py-3 font-medium">Fecha</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">Cargando reportes...</td>
-                  </tr>
-                ) : incidencias.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">Aún no hay incidencias registradas.</td>
-                  </tr>
-                ) : (
-                  incidencias.slice(0, 10).map((incidencia) => {
-                    const meta = CATEGORIA_META[incidencia.categoria];
-                    return (
-                      <tr
-                        key={incidencia.id}
-                        className={`border-l-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${ESTADO_ROW_BORDER[incidencia.estado] || 'border-l-slate-200'}`}
+
+          <div className="mb-4 flex flex-wrap gap-2">
+            {(
+              [
+                { key: 'Todos', label: 'Todos', count: incidencias.length, dot: '#334155' },
+                { key: 'Recibido', label: 'Recibido', count: recibidas, dot: '#ef4444' },
+                { key: 'En proceso', label: 'En proceso', count: enProceso, dot: '#f97316' },
+                { key: 'Solucionado', label: 'Solucionado', count: solucionadas, dot: '#22c55e' },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFiltroEstado(tab.key)}
+                className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  filtroEstado === tab.key
+                    ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
+                    : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tab.dot }} />
+                {tab.label}
+                <span
+                  className={`rounded-full px-1.5 text-xs ${
+                    filtroEstado === tab.key ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            {loading ? (
+              <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">Cargando reportes...</p>
+            ) : reportesFiltrados.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                No hay reportes en este estado.
+              </p>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {reportesFiltrados.slice(0, 15).map((incidencia) => {
+                  const meta = CATEGORIA_META[incidencia.categoria];
+                  return (
+                    <div
+                      key={incidencia.id}
+                      onClick={() => setReporteSeleccionado(incidencia)}
+                      className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    >
+                      {incidencia.foto ? (
+                        <img
+                          src={incidencia.foto}
+                          alt={incidencia.categoria}
+                          className="h-11 w-11 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-xs font-semibold text-white"
+                          style={{ backgroundColor: meta?.color || '#94A3B8' }}
+                        >
+                          {(meta?.label || incidencia.categoria).slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-slate-900 dark:text-slate-100">
+                          {meta?.label || incidencia.categoria}
+                        </p>
+                        <p className="truncate text-sm text-slate-500 dark:text-slate-400">
+                          {incidencia.descripcion || 'Sin descripción'}
+                        </p>
+                      </div>
+
+                      <div className="hidden shrink-0 text-right text-xs text-slate-500 dark:text-slate-400 sm:block">
+                        <p>{incidencia.usuario_nombre || 'Anónimo'}</p>
+                        <p>
+                          {incidencia.fecha_creacion
+                            ? new Date(incidencia.fecha_creacion).toLocaleDateString('es-EC')
+                            : '—'}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                          ESTADO_BADGE[incidencia.estado] || 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                        }`}
                       >
-                        <td className="px-4 py-3 font-medium">
-                          <span className="inline-flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: meta?.color || '#94A3B8' }} />
-                            {meta?.label || incidencia.categoria}
-                          </span>
-                        </td>
-                        <td className="max-w-xs truncate px-4 py-3 text-slate-600 dark:text-slate-300">{incidencia.descripcion || 'Sin descripción'}</td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{incidencia.usuario_nombre || 'Anónimo'}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-                              ESTADO_BADGE[incidencia.estado] || 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                            }`}
-                          >
-                            {incidencia.estado}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                          {incidencia.fecha_creacion ? new Date(incidencia.fecha_creacion).toLocaleDateString('es-EC') : '—'}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                        {incidencia.estado}
+                      </span>
+
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="shrink-0 text-slate-300 dark:text-slate-600"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
       </div>
+
+      {reporteSeleccionado && (
+        <ReporteModal
+          incidencia={reporteSeleccionado}
+          onClose={() => setReporteSeleccionado(null)}
+          onEstadoActualizado={actualizarEstadoLocal}
+        />
+      )}
     </main>
   );
 }

@@ -29,6 +29,12 @@ const getColor = (estado: string) => {
   return '#6b7280';
 };
 
+const ESTADO_BADGE: Record<string, string> = {
+  Recibido: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-900',
+  'En proceso': 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-900',
+  Solucionado: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900',
+};
+
 const getCoordinates = (inc: Incidencia): [number, number] | null => {
   if (inc.ubicacion && typeof inc.ubicacion === 'object' && 'coordinates' in inc.ubicacion) {
     const [lng, lat] = (inc.ubicacion as { coordinates: [number, number] }).coordinates;
@@ -145,18 +151,29 @@ function ClusterMarkers({ points }: { points: ClusterPoint[] }) {
           return (
             <Marker key={cluster.id} position={cluster.coords} icon={icon}>
               <Popup>
-                <b>{main.categoria}</b>
-                <br />
-                {main.descripcion || 'Sin descripción'}
-                <br />
-                <i>Estado: {main.estado}</i>
-                {main.foto && (
-                  <img
-                    src={main.foto}
-                    alt={`Evidencia: ${main.categoria}`}
-                    style={{ marginTop: '6px', maxWidth: '180px', borderRadius: '6px', display: 'block' }}
-                  />
-                )}
+                <div className="min-w-[190px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{main.categoria}</span>
+                    <span
+                      className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                        ESTADO_BADGE[main.estado] || 'bg-slate-50 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {main.estado}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                    {main.descripcion || 'Sin descripción'}
+                  </p>
+                  {main.foto && (
+                    <img
+                      src={main.foto}
+                      alt={`Evidencia: ${main.categoria}`}
+                      className="mt-2 w-full rounded-lg object-cover"
+                      style={{ maxHeight: 160 }}
+                    />
+                  )}
+                </div>
               </Popup>
             </Marker>
           );
@@ -177,27 +194,39 @@ function ClusterMarkers({ points }: { points: ClusterPoint[] }) {
             <Tooltip permanent direction="bottom" offset={[0, 30]} className="cluster-label">
               y {extraCount} más
             </Tooltip>
-            <Popup maxWidth={220}>
-              <b>{cluster.items.length} incidencias en esta zona</b>
-              <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '260px', overflowY: 'auto' }}>
-                {cluster.items.map(({ incidencia }) => (
-                  <div key={incidencia.id} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {incidencia.foto ? (
-                      <img
-                        src={incidencia.foto}
-                        alt={incidencia.categoria}
-                        style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }}
-                      />
-                    ) : (
-                      <div style={{ width: '40px', height: '40px', borderRadius: '6px', background: getColor(incidencia.estado), flexShrink: 0 }} />
-                    )}
-                    <div style={{ fontSize: '12px' }}>
-                      <b>{incidencia.categoria}</b>
-                      <br />
-                      <span style={{ color: '#64748B' }}>{incidencia.estado}</span>
+            <Popup maxWidth={230}>
+              <div className="min-w-[190px]">
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                  {cluster.items.length} incidencias en esta zona
+                </p>
+                <div className="mt-2 flex max-h-[260px] flex-col gap-2 overflow-y-auto">
+                  {cluster.items.map(({ incidencia }) => (
+                    <div key={incidencia.id} className="flex items-center gap-2">
+                      {incidencia.foto ? (
+                        <img
+                          src={incidencia.foto}
+                          alt={incidencia.categoria}
+                          className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div
+                          className="h-10 w-10 shrink-0 rounded-lg"
+                          style={{ background: getColor(incidencia.estado) }}
+                        />
+                      )}
+                      <div className="text-xs">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">{incidencia.categoria}</p>
+                        <span
+                          className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
+                            ESTADO_BADGE[incidencia.estado] || 'bg-slate-50 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          {incidencia.estado}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </Popup>
           </Marker>
@@ -217,7 +246,7 @@ export default function MapaIncidencias({ data }: { data: Incidencia[] }) {
 
   return (
     <MapContainer center={[-4.0085, -79.2239]} zoom={13} className="h-[500px] w-full rounded-lg z-0">
-      <TileLayer url={process.env.NEXT_PUBLIC_TILE_URL || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'} />
+      <TileLayer url={process.env.NEXT_PUBLIC_TILE_URL || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'} className="map-tiles-dark" />
       <ClusterMarkers points={points} />
     </MapContainer>
   );
