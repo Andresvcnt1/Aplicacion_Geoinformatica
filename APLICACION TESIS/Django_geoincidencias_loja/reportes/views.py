@@ -42,23 +42,23 @@ class IncidenciasListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
     
-    def geocercas_geojson(request):
-        """
-        Endpoint de apoyo/referencia: expone las geocercas municipales en GeoJSON
-        para visualización mientras se trazan límites (temporal, solo lectura).
-        """
-        features = []
-        for geo in GeocercaMunicipal.objects.all():
-            features.append({
-                "type": "Feature",
-                "geometry": json.loads(geo.area.geojson),
-                "properties": {
-                    "id": geo.id,
-                    "nombre": geo.nombre,
-                    "activa": geo.activa,
-                }
-            })
-        return JsonResponse({"type": "FeatureCollection", "features": features})
+def geocercas_geojson(request):
+    """
+    Endpoint de apoyo/referencia: expone las geocercas municipales en GeoJSON
+    para visualización mientras se trazan límites (temporal, solo lectura).
+    """
+    features = []
+    for geo in GeocercaMunicipal.objects.all():
+        features.append({
+            "type": "Feature",
+            "geometry": json.loads(geo.area.geojson),
+            "properties": {
+                "id": geo.id,
+                "nombre": geo.nombre,
+                "activa": geo.activa,
+            }
+        })
+    return JsonResponse({"type": "FeatureCollection", "features": features})
 
 def incidencias_geojson(request):
     """
