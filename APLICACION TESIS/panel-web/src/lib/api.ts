@@ -1,16 +1,15 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// Crear instancia de Axios con la URL base de tu .env.local
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  // Usamos la ruta relativa que Vercel interceptará
+  baseURL: '/api-proxy', 
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor: Agregar el token JWT a cada petición automáticamente
 api.interceptors.request.use(
-  (config) => {
+  (config: InternalAxiosRequestConfig) => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('access_token');
       if (token) {
@@ -19,16 +18,13 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error: AxiosError) => Promise.reject(error)
 );
 
-// Interceptor: Manejar errores (ej. si el token expira, redirigir al login)
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const isLoginRequest = error.config?.url?.includes('/login/');
-    if (error.response?.status === 401 && !isLoginRequest && typeof window !== 'undefined') {
-      // Token expirado o inválido
+  async (error: AxiosError) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       window.location.href = '/login';
