@@ -1,6 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false, // Necesario para Leaflet
+  reactStrictMode: false,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'geoincidenciasloja.duckdns.org',
+        pathname: '/media/**',
+      },
+    ],
+  },
 };
 
 module.exports = nextConfig;
