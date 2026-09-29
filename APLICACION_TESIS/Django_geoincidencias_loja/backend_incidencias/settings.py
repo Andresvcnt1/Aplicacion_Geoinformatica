@@ -46,11 +46,11 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     '143.244.163.81',
-    'geoincidencias.duckdns.org',
+    'geoincidenciasloja.duckdns.org',
 ]
 
 
-CSRF_TRUSTED_ORIGINS = ['https://geoincidencias.duckdns.org']   
+CSRF_TRUSTED_ORIGINS = ['https://geoincidenciasloja.duckdns.org']   
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
