@@ -16,7 +16,7 @@ interface Incidencia {
   estado: string;
   fecha_creacion?: string;
   usuario_nombre?: string;
-  foto?: string;
+  foto_url?: string;
   geometry?: { type: string; coordinates: [number, number] };
   ubicacion?: { type: string; coordinates: [number, number] } | string;
 }
@@ -124,9 +124,9 @@ export default function ReporteModal({
         </div>
 
         <div className="px-5 py-4">
-          {incidencia.foto ? (
+          {incidencia.foto_url ? (
             <img
-              src={incidencia.foto}
+              src={incidencia.foto_url}
               alt={`Evidencia: ${incidencia.categoria}`}
               className="h-56 w-full rounded-lg object-cover"
             />
