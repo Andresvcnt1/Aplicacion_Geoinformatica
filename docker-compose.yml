@@ -18,6 +18,8 @@ services:
     volumes:
       - "./APLICACION_TESIS/Django_geoincidencias_loja/media:/app/media"
       - "./APLICACION_TESIS/Django_geoincidencias_loja/static:/app/static"
+      - .:/app
+      - ./APLICACION_TESIS/Django_geoincidencias_loja/media:/var/www/media 
     depends_on:
       - db
     networks:
