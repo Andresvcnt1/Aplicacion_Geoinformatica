@@ -18,18 +18,11 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'var/www/media'
 
-if os.name == 'nt':
-
-    POSTGRES_BIN_PATH = 'C:/Program Files/PostgreSQL/17/bin'
-
-    os.environ['PATH'] += os.pathsep + POSTGRES_BIN_PATH + os.path.pathsep + os.environ['PATH']
-
-    GDAL_LIBRARY_PATH = 'C:/Program Files/PostgreSQL/17/bin/libgdal-35.dll'
-
-
-    GEOS_LIBRARY_PATH = 'C:/Program Files/PostgreSQL/17/bin/libgeos_c.dll'
+if os.name == 'nt':  # Windows (desarrollo local)
+    MEDIA_ROOT = BASE_DIR / 'media'
+else:                # Linux (Docker en producción)
+    MEDIA_ROOT = '/var/www/media'
     
 
 # Quick-start development settings - unsuitable for production
