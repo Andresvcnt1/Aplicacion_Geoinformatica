@@ -14,8 +14,11 @@ from pathlib import Path
 from datetime import timedelta
 import os
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 MEDIA_URL = '/media/'
-MEDIA_ROOT = '/var/www/media/' 
+MEDIA_ROOT = BASE_DIR / 'var/www/media'
 
 if os.name == 'nt':
 
