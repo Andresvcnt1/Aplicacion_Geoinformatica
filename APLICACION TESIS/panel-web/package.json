@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@turf/helpers": "^7.4.0",
     "axios": "^1.20.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
