@@ -49,7 +49,7 @@ export default function ReporteParroquias({ incidencias }: { incidencias: Incide
   useEffect(() => {
     const cargar = async () => {
       try {
-        const response  = await api.get('/geocercas-geojson/');
+        const response  = await api.get('/api-proxy/geocercas-geojson/');
         const features: GeocercaFeature[] = response.data.features || [];
         const filtradas = features
           .map((f) => {

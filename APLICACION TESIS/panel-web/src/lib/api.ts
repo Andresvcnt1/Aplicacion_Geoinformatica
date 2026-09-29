@@ -1,8 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 const api = axios.create({
-  // Usamos la ruta relativa que Vercel interceptará
-  baseURL: '/api-proxy', 
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL, // Apunta directo a http://143.244.163.81/api
   headers: {
     'Content-Type': 'application/json',
   },
