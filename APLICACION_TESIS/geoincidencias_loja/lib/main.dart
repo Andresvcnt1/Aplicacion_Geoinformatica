@@ -14,8 +14,10 @@ class MyApp extends StatelessWidget {
       title: 'GeoIncidencias Loja',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primaryColor: const Color(0xFF00796B),
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF00796B),
+        ),
       ),
       // Forzamos que arranque directo en el Splash
       home: const SplashScreen(),
