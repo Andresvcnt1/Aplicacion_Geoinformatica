@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/aparecer.dart';
+import '../../core/theme.dart';
 import '../auth/login_screen.dart';
 import '../dashboard/home_screen.dart';
 
@@ -86,46 +88,113 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
+  // ============================================================
+  // INTERFAZ: rediseñada como espejo del login y registro
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF00796B),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/logo.jpg',
-              width: 200,
-              height: 200,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(
-                  Icons.location_city,
-                  size: 120,
-                  color: Colors.white,
-                );
-              },
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppTheme.primarioOscuro, AppTheme.primario],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Aparecer(orden: 0, child: _logo()),
+                const SizedBox(height: 22),
+                Aparecer(
+                  orden: 1,
+                  child: const Text(
+                    'GeoIncidencias Loja',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 27,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Aparecer(
+                  orden: 2,
+                  child: Text(
+                    'Tu reporte transforma tu ciudad',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 14.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 46),
+                Aparecer(orden: 3, child: _indicadorCarga()),
+              ],
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'GeoIncidencias Loja',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tu reporte transforma tu ciudad',
-              style: TextStyle(color: Colors.white70, fontSize: 15),
-            ),
-            const SizedBox(height: 40),
-            const CircularProgressIndicator(color: Colors.white),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _logo() {
+    return Container(
+      width: 140,
+      height: 140,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Image.asset(
+        'assets/images/logo.jpg',
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(
+            Icons.location_city,
+            size: 64,
+            color: AppTheme.primario,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _indicadorCarga() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          'Verificando sesión segura…',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

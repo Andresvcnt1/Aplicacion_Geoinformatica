@@ -50,18 +50,6 @@ interface Cluster      { id: string; coords: [number, number]; items: ClusterPoi
 
 const CLUSTER_PIXEL_RADIUS = 48;
 
-// ── Popup styles: blanco en modo claro, oscuro en modo oscuro ───────────────
-const POPUP_HEADER = 'font-semibold text-slate-900 dark:text-slate-100';
-const POPUP_DESC   = 'mt-1 text-xs text-slate-600 dark:text-slate-300';
-
-// Badge en popup — necesita clases inline porque Leaflet renderiza fuera del árbol React/Tailwind
-const estadoBadgeStyle = (estado: string): React.CSSProperties => {
-  if (estado === 'Recibido')    return { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 999, padding: '1px 8px', fontSize: 10, fontWeight: 600 };
-  if (estado === 'En proceso')  return { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', borderRadius: 999, padding: '1px 8px', fontSize: 10, fontWeight: 600 };
-  if (estado === 'Solucionado') return { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 999, padding: '1px 8px', fontSize: 10, fontWeight: 600 };
-  return { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 999, padding: '1px 8px', fontSize: 10 };
-};
-
 function buildClusterIcon(photoUrl: string | undefined, extraCount: number, estadoColor: string) {
   const size = 54;
   const imgHtml = photoUrl
@@ -86,6 +74,14 @@ function buildClusterIcon(photoUrl: string | undefined, extraCount: number, esta
     iconAnchor: [size / 2, size / 2],
   });
 }
+
+// ── Badge de estado (inline, porque Leaflet no lee Tailwind) ────────────────
+const estadoBadgeStyle = (estado: string): React.CSSProperties => {
+  if (estado === 'Recibido')    return { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 600 };
+  if (estado === 'En proceso')  return { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 600 };
+  if (estado === 'Solucionado') return { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 600 };
+  return { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 999, padding: '2px 8px', fontSize: 10 };
+};
 
 function ClusterMarkers({ points }: { points: ClusterPoint[] }) {
   const map = useMap();
@@ -126,18 +122,27 @@ function ClusterMarkers({ points }: { points: ClusterPoint[] }) {
         const extraCount = cluster.items.length - 1;
         const icon       = buildClusterIcon(main.foto, extraCount, getColor(main.estado));
 
+        // ── CASO 1: un solo item en el cluster ───────────────────────────────
         if (cluster.items.length === 1) {
           return (
             <Marker key={cluster.id} position={cluster.coords} icon={icon}>
-              <Popup>
-                <div style={{ minWidth: 190 }}>
+              <Popup maxWidth={320} minWidth={260}>
+                <div className="leaflet-popup-content-custom">
+                  {main.foto && (
+                    <img
+                      src={main.foto}
+                      alt={`Evidencia: ${main.categoria}`}
+                      style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }}
+                    />
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontWeight: 600, color: '#0f172a' }}>{main.categoria}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{main.categoria}</span>
                     <span style={estadoBadgeStyle(main.estado)}>{main.estado}</span>
                   </div>
-                  <p style={{ marginTop: 4, fontSize: 12, color: '#475569' }}>{main.descripcion || 'Sin descripción'}</p>
-                  {main.foto && (
-                    <img src={main.foto} alt={`Evidencia: ${main.categoria}`} style={{ marginTop: 8, width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8 }} />
+                  {main.descripcion && (
+                    <p style={{ marginTop: 6, fontSize: 12.5, color: '#475569', lineHeight: 1.4 }}>
+                      {main.descripcion}
+                    </p>
                   )}
                 </div>
               </Popup>
@@ -145,6 +150,7 @@ function ClusterMarkers({ points }: { points: ClusterPoint[] }) {
           );
         }
 
+        // ── CASO 2: cluster múltiple — filas horizontales, SIN scroll ────────
         return (
           <Marker
             key={cluster.id}
@@ -160,20 +166,67 @@ function ClusterMarkers({ points }: { points: ClusterPoint[] }) {
             <Tooltip permanent direction="bottom" offset={[0, 30]} className="cluster-label">
               y {extraCount} más
             </Tooltip>
-            <Popup maxWidth={230}>
-              <div style={{ minWidth: 190 }}>
-                <p style={{ fontWeight: 600, color: '#0f172a' }}>{cluster.items.length} incidencias en esta zona</p>
-                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
+            <Popup maxWidth={360} minWidth={300}>
+              <div className="leaflet-popup-content-custom">
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 10 }}>
+                  {cluster.items.length} incidencias en esta zona
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {cluster.items.map(({ incidencia }) => (
-                    <div key={incidencia.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div
+                      key={incidencia.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: 8,
+                        background: '#f8fafc',
+                        borderRadius: 10,
+                      }}
+                    >
                       {incidencia.foto ? (
-                        <img src={incidencia.foto} alt={incidencia.categoria} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                        <img
+                          src={incidencia.foto}
+                          alt={incidencia.categoria}
+                          style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
+                        />
                       ) : (
-                        <div style={{ width: 40, height: 40, borderRadius: 8, background: getColor(incidencia.estado), flexShrink: 0 }} />
+                        <div
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 8,
+                            background: getColor(incidencia.estado),
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <span style={{ fontSize: 18 }}>📍</span>
+                        </div>
                       )}
-                      <div style={{ fontSize: 12 }}>
-                        <p style={{ fontWeight: 500, color: '#0f172a' }}>{incidencia.categoria}</p>
-                        <span style={estadoBadgeStyle(incidencia.estado)}>{incidencia.estado}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 600, fontSize: 12.5, color: '#0f172a', margin: 0 }}>
+                          {incidencia.categoria}
+                        </p>
+                        {incidencia.descripcion && (
+                          <p
+                            style={{
+                              fontSize: 11,
+                              color: '#64748b',
+                              margin: '2px 0 0 0',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {incidencia.descripcion}
+                          </p>
+                        )}
+                        <span style={{ ...estadoBadgeStyle(incidencia.estado), marginTop: 4, display: 'inline-block' }}>
+                          {incidencia.estado}
+                        </span>
                       </div>
                     </div>
                   ))}

@@ -3,8 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/api_service.dart';
+import '../../core/aparecer.dart';
+import '../../core/app_header.dart'; // <-- NUEVO
+import '../../core/theme.dart';
 import '../auth/biometric_service.dart';
 import 'services/geolocator_service.dart';
+import 'widgets/categoria_dropdown.dart';
+import 'widgets/foto_picker.dart';
+import 'widgets/gps_card.dart';
 
 class ReporteScreen extends StatefulWidget {
   const ReporteScreen({super.key});
@@ -18,9 +24,11 @@ class _ReporteScreenState extends State<ReporteScreen> {
   final _descripcionController = TextEditingController();
 
   String _categoriaSeleccionada = 'VIAL';
-  String _estadoGps = 'Presiona el botón para obtener la ubicación';
   Position? _posicionActual;
+  bool _errorGps = false;
+  String? _mensajeErrorGps;
   File? _imagenSeleccionada;
+  bool _fotoObligatoriaResaltada = false;
 
   bool _estaEnviando = false;
   bool _cargandoGps = false;
@@ -31,23 +39,23 @@ class _ReporteScreenState extends State<ReporteScreen> {
   final _biometricService = BiometricService();
   final ImagePicker _picker = ImagePicker();
 
-  final List<Map<String, String>> _categorias = [
-    {'value': 'AGUA', 'label': 'Fuga de Agua / alcantarillado'},
-    {'value': 'VIAL', 'label': 'Bache / Deterioro Vial'},
-    {'value': 'LUZ', 'label': 'Luminaria Defectuosa'},
-    {'value': 'OTRO', 'label': 'Otros daños'},
+  static const List<CategoriaOpcion> _categorias = [
+    CategoriaOpcion(
+      'AGUA',
+      'Fuga de agua / alcantarillado',
+      Icons.water_drop_outlined,
+    ),
+    CategoriaOpcion(
+      'VIAL',
+      'Bache / deterioro vial',
+      Icons.construction_outlined,
+    ),
+    CategoriaOpcion('LUZ', 'Luminaria defectuosa', Icons.lightbulb_outline),
+    CategoriaOpcion('OTRO', 'Otros daños', Icons.report_problem_outlined),
   ];
 
-  // --- Helpers Responsivos Locales ---
   double _getResponsiveHeight(BuildContext context, double percentage) {
     return MediaQuery.of(context).size.height * percentage;
-  }
-
-  double _getResponsiveFontSize(BuildContext context, double baseSize) {
-    final width = MediaQuery.of(context).size.width;
-    if (width < 360) return baseSize * 0.85;
-    if (width > 600) return baseSize * 1.2;
-    return baseSize;
   }
 
   EdgeInsets _getResponsivePadding(BuildContext context) {
@@ -58,21 +66,22 @@ class _ReporteScreenState extends State<ReporteScreen> {
   Future<void> _obtenerUbicacionGPS() async {
     setState(() {
       _cargandoGps = true;
-      _estadoGps = 'Obteniendo ubicación satelital...';
+      _errorGps = false;
+      _mensajeErrorGps = null;
     });
     try {
       final position = await _geolocatorService.obtenerUbicacion();
       if (!mounted) return;
       setState(() {
         _posicionActual = position;
-        _estadoGps =
-            '✅ Ubicación obtenida\nLat: ${position.latitude.toStringAsFixed(6)}\nLng: ${position.longitude.toStringAsFixed(6)}';
         _cargandoGps = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _estadoGps = '❌ Error: $e';
+        _posicionActual = null;
+        _errorGps = true;
+        _mensajeErrorGps = e.toString().replaceFirst('Exception: ', '');
         _cargandoGps = false;
       });
     }
@@ -86,7 +95,10 @@ class _ReporteScreenState extends State<ReporteScreen> {
         imageQuality: 70,
       );
       if (imagen != null && mounted) {
-        setState(() => _imagenSeleccionada = File(imagen.path));
+        setState(() {
+          _imagenSeleccionada = File(imagen.path);
+          _fotoObligatoriaResaltada = false;
+        });
       }
     } finally {
       if (mounted) setState(() => _cargandoFoto = false);
@@ -94,23 +106,29 @@ class _ReporteScreenState extends State<ReporteScreen> {
   }
 
   Future<void> _enviarReporte() async {
-    // 1. Validar campos de texto (categoría, descripción)
     if (!_formKey.currentState!.validate()) return;
 
-    // 2. ✅ VALIDACIÓN DE FOTO OBLIGATORIA (RF003)
     if (_imagenSeleccionada == null) {
+      setState(() => _fotoObligatoriaResaltada = true);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            '⚠️ Debes tomar o seleccionar una foto como evidencia.',
-          ),
+          content: Text('⚠️ Debes tomar una foto como evidencia.'),
           backgroundColor: Colors.orange,
         ),
       );
-      return; // Detiene la ejecución aquí, no llega al servidor
+      return;
     }
 
-    // 3. Validar biometría
+    if (_posicionActual == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Obtén tu ubicación GPS antes de enviar.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final bool autenticado = await _biometricService.autenticarUsuario();
     if (!autenticado) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -147,23 +165,22 @@ class _ReporteScreenState extends State<ReporteScreen> {
           ),
         );
 
-        // Limpiar formulario
         _formKey.currentState!.reset();
         setState(() {
           _descripcionController.clear();
           _imagenSeleccionada = null;
           _posicionActual = null;
+          _errorGps = false;
+          _mensajeErrorGps = null;
           _categoriaSeleccionada = 'VIAL';
-          _estadoGps = 'Presiona el botón para obtener la ubicación';
+          _fotoObligatoriaResaltada = false;
         });
       } else {
-        // Manejo de errores del servidor (ej: fuera de geocerca = 400)
         String mensajeError = 'Error del servidor (${response.statusCode})';
         if (response.statusCode == 400) {
           mensajeError =
               '⚠️ No se pudo enviar. Verifica que:\n1. La foto esté adjunta\n2. Estés dentro del área municipal';
         }
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(mensajeError),
@@ -195,12 +212,12 @@ class _ReporteScreenState extends State<ReporteScreen> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
+      backgroundColor: AppTheme.fondo,
       resizeToAvoidBottomInset: true,
-      appBar: AppBar(
-        title: const Text('Reporte Ciudadano Loja'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        elevation: 2,
+      appBar: const AppHeader(
+        // <-- ÚNICO CAMBIO: barra con subtítulo
+        titulo: 'Reportar incidencia',
+        subtitulo: 'Reporta en menos de un minuto',
       ),
       body: Form(
         key: _formKey,
@@ -209,305 +226,148 @@ class _ReporteScreenState extends State<ReporteScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- Categoría ---
-              Text(
-                'Seleccione la categoría:',
-                style: TextStyle(
-                  fontSize: _getResponsiveFontSize(context, 16),
-                  fontWeight: FontWeight.bold,
+              Aparecer(
+                orden: 0,
+                child: _seccion(
+                  titulo: 'Selecciona la categoría',
+                  hijo: CategoriaSelector(
+                    opciones: _categorias,
+                    seleccionada: _categoriaSeleccionada,
+                    onChanged: (v) =>
+                        setState(() => _categoriaSeleccionada = v),
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _categoriaSeleccionada,
-                items: _categorias
-                    .map(
-                      (c) => DropdownMenuItem(
-                        value: c['value'],
-                        child: Text(c['label']!),
+              const SizedBox(height: 22),
+
+              Aparecer(
+                orden: 1,
+                child: _seccion(
+                  titulo: 'Describe el daño',
+                  hijo: TextFormField(
+                    controller: _descripcionController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _categoriaSeleccionada = v!),
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-                validator: (value) =>
-                    value == null ? 'Seleccione una categoría' : null,
+                      hintText: 'Describe el daño con detalle...',
+                      helperText: 'Mínimo 10 caracteres',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'La descripción es obligatoria';
+                      }
+                      if (value.trim().length < 10) {
+                        return 'Mínimo 10 caracteres';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
 
-              // --- Descripción ---
-              Text(
-                'Descripción del Daño:',
-                style: TextStyle(
-                  fontSize: _getResponsiveFontSize(context, 16),
-                  fontWeight: FontWeight.bold,
+              Aparecer(
+                orden: 2,
+                child: _seccion(
+                  titulo: 'Evidencia fotográfica',
+                  hijo: FotoPicker(
+                    imagen: _imagenSeleccionada,
+                    cargando: _cargandoFoto,
+                    resaltarFalta: _fotoObligatoriaResaltada,
+                    onTap: _seleccionarImagen,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _descripcionController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Describa el daño con detalle...',
-                  helperText: 'Mínimo 10 caracteres',
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'La descripción es obligatoria';
-                  }
-                  if (value.trim().length < 10) {
-                    return 'Mínimo 10 caracteres';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
 
-              // --- Foto Responsiva (AspectRatio) ---
-              Text(
-                'Evidencia Visual (Foto):',
-                style: TextStyle(
-                  fontSize: _getResponsiveFontSize(context, 16),
-                  fontWeight: FontWeight.bold,
+              Aparecer(
+                orden: 3,
+                child: GpsCard(
+                  cargando: _cargandoGps,
+                  posicion: _posicionActual,
+                  tieneError: _errorGps,
+                  mensajeError: _mensajeErrorGps,
+                  onTap: _obtenerUbicacionGPS,
                 ),
               ),
-              const SizedBox(height: 8),
-              AspectRatio(
-                aspectRatio: 4 / 3,
-                child: GestureDetector(
-                  onTap: _cargandoFoto ? null : _seleccionarImagen,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _imagenSeleccionada != null
-                            ? Colors.teal
-                            : Colors.grey.shade400,
-                        width: _imagenSeleccionada != null ? 2 : 1.5,
+              const SizedBox(height: 28),
+
+              Aparecer(
+                orden: 4,
+                child: SizedBox(
+                  height: _getResponsiveHeight(context, 0.06),
+                  child: ElevatedButton(
+                    onPressed: _estaEnviando ? null : _enviarReporte,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primario,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: _cargandoFoto
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.teal,
-                              ),
-                            )
-                          : _imagenSeleccionada != null
-                          ? Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image.file(
-                                  _imagenSeleccionada!,
-                                  fit: BoxFit.cover,
-                                ),
-                                Positioned(
-                                  top: 12,
-                                  right: 12,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black54,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: const Icon(
-                                      Icons.check_circle,
-                                      color: Colors.greenAccent,
-                                      size: 24,
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 12,
-                                  right: 12,
-                                  child: InkWell(
-                                    onTap: _seleccionarImagen,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black54,
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: const Icon(
-                                        Icons.camera_alt,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : const Column(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: _estaEnviando
+                          ? const Row(
+                              key: ValueKey('enviando'),
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  Icons.camera_alt_outlined,
-                                  size: 48,
-                                  color: Colors.teal,
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Toca para tomar foto',
-                                  style: TextStyle(color: Colors.teal),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // --- GPS Responsivo ---
-              Card(
-                elevation: _posicionActual != null ? 4 : 0,
-                color: _posicionActual != null
-                    ? Colors.teal.shade50
-                    : Colors.grey.shade100,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: _posicionActual != null
-                        ? Colors.teal
-                        : Colors.grey.shade300,
-                    width: _posicionActual != null ? 2 : 1,
-                  ),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(
-                    MediaQuery.of(context).size.width > 600 ? 20.0 : 16.0,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            _posicionActual != null
-                                ? Icons.check_circle
-                                : Icons.location_off,
-                            color: _posicionActual != null
-                                ? Colors.teal
-                                : Colors.redAccent,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Ubicación GPS',
-                            style: TextStyle(
-                              fontSize: _getResponsiveFontSize(context, 16),
-                              fontWeight: FontWeight.bold,
-                              color: _posicionActual != null
-                                  ? Colors.teal
-                                  : Colors.grey.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _estadoGps,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _posicionActual != null
-                              ? Colors.black87
-                              : Colors.grey.shade600,
-                          fontSize: _getResponsiveFontSize(context, 14),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _cargandoGps ? null : _obtenerUbicacionGPS,
-                          icon: _cargandoGps
-                              ? const SizedBox(
-                                  height: 16,
-                                  width: 16,
+                                SizedBox(
+                                  height: 20,
+                                  width: 20,
                                   child: CircularProgressIndicator(
+                                    color: Colors.white,
                                     strokeWidth: 2,
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Text(
+                                  'Enviando reporte...',
+                                  style: TextStyle(
+                                    fontSize: 16,
                                     color: Colors.white,
                                   ),
-                                )
-                              : const Icon(Icons.my_location, size: 18),
-                          label: Text(
-                            _cargandoGps
-                                ? 'Buscando señal...'
-                                : 'Obtener Ubicación Actual',
-                            style: TextStyle(
-                              fontSize: _getResponsiveFontSize(context, 14),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // --- Botón Enviar ---
-              SizedBox(
-                height: _getResponsiveHeight(context, 0.06),
-                child: ElevatedButton(
-                  onPressed: _estaEnviando ? null : _enviarReporte,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: _estaEnviando
-                      ? const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Enviando reporte...',
+                                ),
+                              ],
+                            )
+                          : const Text(
+                              'ENVIAR REPORTE',
+                              key: ValueKey('idle'),
                               style: TextStyle(
                                 fontSize: 16,
+                                fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
                             ),
-                          ],
-                        )
-                      : const Text(
-                          'ENVIAR REPORTE CIUDADANO',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                    ),
+                  ),
                 ),
               ),
 
-              // Espacio para el teclado virtual
               SizedBox(height: bottomInset + 20),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _seccion({required String titulo, required Widget hijo}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          titulo,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey.shade900,
+          ),
+        ),
+        const SizedBox(height: 10),
+        hijo,
+      ],
     );
   }
 }

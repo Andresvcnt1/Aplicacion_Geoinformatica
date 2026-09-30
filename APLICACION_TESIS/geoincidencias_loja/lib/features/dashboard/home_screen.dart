@@ -14,15 +14,23 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
+  // Sube cada vez que se entra a la pestaña Perfil. Así el Perfil se vuelve a
+  // cargar (los números de las tarjetas quedan al día tras enviar un reporte)
+  // y se ve su animación de entrada.
+  int _visitasPerfil = 0;
+
+  List<Widget> get _screens => [
     const MapaIncidenciasScreen(),
     const PublicacionesScreen(),
     const ReporteScreen(),
-    const PerfilScreen(),
+    PerfilScreen(key: ValueKey(_visitasPerfil)),
   ];
 
   void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
+    setState(() {
+      if (index == 3 && _selectedIndex != 3) _visitasPerfil++;
+      _selectedIndex = index;
+    });
   }
 
   @override

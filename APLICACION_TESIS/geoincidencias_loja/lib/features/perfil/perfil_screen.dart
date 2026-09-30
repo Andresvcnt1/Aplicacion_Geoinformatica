@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_service.dart';
+import '../../core/aparecer.dart';
 import '../../core/theme.dart';
 import '../auth/login_screen.dart';
 
@@ -27,10 +28,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
     super.initState();
     _cargarPerfil();
   }
-
-  // ---------------------------------------------------------------------------
-  // Lógica (sin cambios respecto a la versión anterior)
-  // ---------------------------------------------------------------------------
 
   Future<void> _cargarPerfil() async {
     setState(() {
@@ -133,10 +130,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Utilidades de presentación
-  // ---------------------------------------------------------------------------
-
   int _numero(dynamic valor) => (valor as num?)?.toInt() ?? 0;
 
   String _miembroDesde(String? iso) {
@@ -159,10 +152,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
     return '${meses[fecha.month - 1]} de ${fecha.year}';
   }
 
-  // ---------------------------------------------------------------------------
-  // Interfaz
-  // ---------------------------------------------------------------------------
-
   @override
   Widget build(BuildContext context) {
     final firstName = _perfil?['first_name'] ?? '';
@@ -174,16 +163,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.fondo,
-      appBar: AppBar(
-        title: const Text('Mi perfil'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
-            onPressed: _cerrarSesion,
-          ),
-        ],
-      ),
+      // SIN AppBar: el patrón título+subtítulo vive dentro de _cabecera
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -213,37 +193,45 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(bottom: 28),
                 children: [
-                  _cabecera(nombreMostrar.toString()),
+                  Aparecer(child: _cabecera(nombreMostrar.toString())),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _tituloSeccion('Mis reportes'),
+                        Aparecer(
+                          orden: 1,
+                          child: _tituloSeccion('Mis reportes'),
+                        ),
                         const SizedBox(height: 12),
                         _bloqueKpi(),
                         const SizedBox(height: 26),
-                        _tituloSeccion('Mi cuenta'),
+                        Aparecer(orden: 7, child: _tituloSeccion('Mi cuenta')),
                         const SizedBox(height: 12),
-                        _tarjetaCuenta(),
+                        Aparecer(orden: 8, child: _tarjetaCuenta()),
                         const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _cerrarSesion,
-                            icon: const Icon(
-                              Icons.logout,
-                              color: Colors.redAccent,
-                            ),
-                            label: const Text(
-                              'Cerrar sesión',
-                              style: TextStyle(color: Colors.redAccent),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.redAccent),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                        Aparecer(
+                          orden: 9,
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _cerrarSesion,
+                              icon: const Icon(
+                                Icons.logout,
+                                color: Colors.redAccent,
+                              ),
+                              label: const Text(
+                                'Cerrar sesión',
+                                style: TextStyle(color: Colors.redAccent),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.redAccent),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             ),
                           ),
@@ -262,10 +250,11 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
       decoration: const BoxDecoration(
+        // Gradiente UNIFICADO a la misma dirección que Publicaciones/Reportar
         gradient: LinearGradient(
-          colors: [AppTheme.primario, AppTheme.primarioOscuro],
+          colors: [AppTheme.primarioOscuro, AppTheme.primario],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -276,6 +265,34 @@ class _PerfilScreenState extends State<PerfilScreen> {
       ),
       child: Column(
         children: [
+          // >>> PATRÓN que te gustó: título bold + subtítulo <<<
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Mi perfil',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Tu actividad en GeoIncidencias',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+
           Stack(
             children: [
               CircleAvatar(
@@ -357,14 +374,13 @@ class _PerfilScreenState extends State<PerfilScreen> {
     );
   }
 
-  /// Tarjetas KPI de los reportes del ciudadano. Si el backend todavía no
-  /// envía `reportes_por_estado`, solo se muestra el total.
   Widget _bloqueKpi() {
     final total = _numero(_perfil?['total_reportes']);
     final porEstado = _perfil?['reportes_por_estado'];
 
     final tarjetaTotal = _KpiCard(
       etiqueta: 'Total',
+      orden: 2,
       valor: total,
       color: AppTheme.primario,
       icono: Icons.assignment_outlined,
@@ -387,6 +403,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
             Expanded(
               child: _KpiCard(
                 etiqueta: 'Recibido',
+                orden: 3,
                 valor: recibidos,
                 color: EstadoColors.recibido,
                 icono: Icons.schedule,
@@ -400,6 +417,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
             Expanded(
               child: _KpiCard(
                 etiqueta: 'En proceso',
+                orden: 4,
                 valor: enProceso,
                 color: EstadoColors.enProceso,
                 icono: Icons.autorenew,
@@ -409,6 +427,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
             Expanded(
               child: _KpiCard(
                 etiqueta: 'Solucionado',
+                orden: 5,
                 valor: solucionados,
                 color: EstadoColors.solucionado,
                 icono: Icons.check_circle_outline,
@@ -423,7 +442,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
             style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
           )
         else
-          _barraResolucion(total, solucionados),
+          Aparecer(orden: 6, child: _barraResolucion(total, solucionados)),
       ],
     );
   }
@@ -530,22 +549,27 @@ class _PerfilScreenState extends State<PerfilScreen> {
   }
 }
 
-/// Tarjeta KPI: franja de color del estado, etiqueta y número animado.
 class _KpiCard extends StatelessWidget {
   final String etiqueta;
   final int valor;
   final Color color;
   final IconData icono;
+  final int orden;
 
   const _KpiCard({
     required this.etiqueta,
     required this.valor,
     required this.color,
     required this.icono,
+    this.orden = 0,
   });
 
   @override
   Widget build(BuildContext context) {
+    return Aparecer(orden: orden, child: _contenido());
+  }
+
+  Widget _contenido() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: Container(

@@ -68,3 +68,33 @@ body {
 .dark .map-tiles-dark .custom-cluster-icon {
   filter: invert(1) hue-rotate(180deg);
 }
+
+/* ===== Popup de Leaflet: ancho, sin scroll, modo oscuro ===== */
+.leaflet-popup-content-wrapper {
+  border-radius: 14px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.28) !important;
+}
+.leaflet-popup-content {
+  width: auto !important;        /* deja que el contenido defina el ancho */
+  margin: 12px 14px !important;
+  max-height: none !important;   /* mata la scrollbar vertical */
+  overflow: visible !important;
+  line-height: 1.35 !important;
+}
+.leaflet-popup-tip {
+  box-shadow: 0 8px 24px rgba(0,0,0,.28) !important;
+}
+
+/* Modo oscuro: Leaflet no respeta dark:, hay que forzarlo */
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+.dark .leaflet-popup-content { color: #e2e8f0 !important; }
+.dark .leaflet-popup-close-button { color: #94a3b8 !important; }
+
+/* Fondo de las mini-cards dentro del popup (para que se vean en dark) */
+.dark .leaflet-popup-content-custom div[style*="background: #f8fafc"] {
+  background: #1e293b !important;
+}
