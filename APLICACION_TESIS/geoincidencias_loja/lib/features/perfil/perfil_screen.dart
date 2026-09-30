@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_service.dart';
+import '../../core/theme.dart';
 import '../auth/login_screen.dart';
 
 class PerfilScreen extends StatefulWidget {
@@ -26,6 +27,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
     super.initState();
     _cargarPerfil();
   }
+
+  // ---------------------------------------------------------------------------
+  // Lógica (sin cambios respecto a la versión anterior)
+  // ---------------------------------------------------------------------------
 
   Future<void> _cargarPerfil() async {
     setState(() {
@@ -128,9 +133,38 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Utilidades de presentación
+  // ---------------------------------------------------------------------------
+
+  int _numero(dynamic valor) => (valor as num?)?.toInt() ?? 0;
+
+  String _miembroDesde(String? iso) {
+    final fecha = DateTime.tryParse(iso ?? '');
+    if (fecha == null) return '-';
+    const meses = [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre',
+    ];
+    return '${meses[fecha.month - 1]} de ${fecha.year}';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Interfaz
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
-    // CORRECCIÓN: Construir el nombre completo a partir de first_name y last_name
     final firstName = _perfil?['first_name'] ?? '';
     final lastName = _perfil?['last_name'] ?? '';
     final nombreCompleto = '$firstName $lastName'.trim();
@@ -139,12 +173,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
         : (_perfil?['username'] ?? 'Usuario');
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: AppTheme.fondo,
       appBar: AppBar(
-        title: const Text('Mi Perfil'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        elevation: 1,
+        title: const Text('Mi perfil'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -177,202 +208,403 @@ class _PerfilScreenState extends State<PerfilScreen> {
             )
           : RefreshIndicator(
               onRefresh: _cargarPerfil,
-              color: Colors.teal,
+              color: AppTheme.primario,
               child: ListView(
-                padding: const EdgeInsets.only(bottom: 24),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 28),
                 children: [
-                  // --- Cabecera tipo IG/Facebook ---
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 28,
-                      horizontal: 16,
-                    ),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF00796B), Color(0xFF004D40)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
+                  _cabecera(nombreMostrar.toString()),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 52,
-                              backgroundColor: Colors.white,
-                              child: CircleAvatar(
-                                radius: 48,
-                                backgroundColor: Colors.teal.shade50,
-                                backgroundImage:
-                                    _perfil?['foto_perfil_url'] != null
-                                    ? NetworkImage(_perfil!['foto_perfil_url'])
-                                    : null,
-                                child: _subiendoFoto
-                                    ? const CircularProgressIndicator(
-                                        color: Colors.teal,
-                                      )
-                                    : (_perfil?['foto_perfil_url'] == null
-                                          ? const Icon(
-                                              Icons.person,
-                                              size: 50,
-                                              color: Colors.teal,
-                                            )
-                                          : null),
+                        _tituloSeccion('Mis reportes'),
+                        const SizedBox(height: 12),
+                        _bloqueKpi(),
+                        const SizedBox(height: 26),
+                        _tituloSeccion('Mi cuenta'),
+                        const SizedBox(height: 12),
+                        _tarjetaCuenta(),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _cerrarSesion,
+                            icon: const Icon(
+                              Icons.logout,
+                              color: Colors.redAccent,
+                            ),
+                            label: const Text(
+                              'Cerrar sesión',
+                              style: TextStyle(color: Colors.redAccent),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.redAccent),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: GestureDetector(
-                                onTap: _subiendoFoto
-                                    ? null
-                                    : _cambiarFotoPerfil,
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.camera_alt,
-                                    size: 18,
-                                    color: Colors.teal,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // CORRECCIÓN: Mostrar nombre completo en grande
-                        Text(
-                          nombreMostrar,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-
-                        const SizedBox(height: 6),
-
-                        // Mostrar cédula y username de forma secundaria y limpia
-                        Text(
-                          'C.I.: ${_perfil?['cedula'] ?? '-'}  •  ${_perfil?['username'] ?? ''}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
                         ),
                       ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // --- Estadística: total de reportes ---
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 20,
-                          horizontal: 16,
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              '${_perfil?['total_reportes'] ?? 0}',
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.teal,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Incidencias reportadas',
-                              style: TextStyle(
-                                color: Colors.grey.shade700,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // --- Datos de la cuenta ---
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Card(
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        children: [
-                          ListTile(
-                            leading: const Icon(
-                              Icons.email_outlined,
-                              color: Colors.teal,
-                            ),
-                            title: const Text('Correo electrónico'),
-                            subtitle: Text(_perfil?['email'] ?? '-'),
-                          ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(
-                              Icons.fingerprint,
-                              color: Colors.teal,
-                            ),
-                            title: const Text('Verificación biométrica'),
-                            subtitle: Text(
-                              _metodoBiometricoLabel(
-                                _perfil?['metodo_verificacion'],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _cerrarSesion,
-                        icon: const Icon(Icons.logout, color: Colors.redAccent),
-                        label: const Text(
-                          'Cerrar sesión',
-                          style: TextStyle(color: Colors.redAccent),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.redAccent),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
                     ),
                   ),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _cabecera(String nombre) {
+    final fotoUrl = _perfil?['foto_perfil_url'];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppTheme.primario, AppTheme.primarioOscuro],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+      ),
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 52,
+                backgroundColor: Colors.white,
+                child: CircleAvatar(
+                  radius: 48,
+                  backgroundColor: Colors.teal.shade50,
+                  backgroundImage: fotoUrl != null
+                      ? NetworkImage(fotoUrl)
+                      : null,
+                  child: _subiendoFoto
+                      ? const CircularProgressIndicator(color: Colors.teal)
+                      : (fotoUrl == null
+                            ? const Icon(
+                                Icons.person,
+                                size: 50,
+                                color: Colors.teal,
+                              )
+                            : null),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: _subiendoFoto ? null : _cambiarFotoPerfil,
+                  child: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      size: 18,
+                      color: AppTheme.primario,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            nombre,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'C.I. ${_perfil?['cedula'] ?? '-'}',
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tituloSeccion(String texto) {
+    return Text(
+      texto,
+      style: TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        color: Colors.grey.shade900,
+      ),
+    );
+  }
+
+  /// Tarjetas KPI de los reportes del ciudadano. Si el backend todavía no
+  /// envía `reportes_por_estado`, solo se muestra el total.
+  Widget _bloqueKpi() {
+    final total = _numero(_perfil?['total_reportes']);
+    final porEstado = _perfil?['reportes_por_estado'];
+
+    final tarjetaTotal = _KpiCard(
+      etiqueta: 'Total',
+      valor: total,
+      color: AppTheme.primario,
+      icono: Icons.assignment_outlined,
+    );
+
+    if (porEstado is! Map) {
+      return Row(children: [Expanded(child: tarjetaTotal)]);
+    }
+
+    final recibidos = _numero(porEstado['Recibido']);
+    final enProceso = _numero(porEstado['En proceso']);
+    final solucionados = _numero(porEstado['Solucionado']);
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: tarjetaTotal),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _KpiCard(
+                etiqueta: 'Recibido',
+                valor: recibidos,
+                color: EstadoColors.recibido,
+                icono: Icons.schedule,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _KpiCard(
+                etiqueta: 'En proceso',
+                valor: enProceso,
+                color: EstadoColors.enProceso,
+                icono: Icons.autorenew,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _KpiCard(
+                etiqueta: 'Solucionado',
+                valor: solucionados,
+                color: EstadoColors.solucionado,
+                icono: Icons.check_circle_outline,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (total == 0)
+          Text(
+            'Todavía no has enviado reportes. Toca Reportar para crear el primero.',
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+          )
+        else
+          _barraResolucion(total, solucionados),
+      ],
+    );
+  }
+
+  Widget _barraResolucion(int total, int solucionados) {
+    final proporcion = total == 0 ? 0.0 : solucionados / total;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Reportes solucionados',
+                style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+              ),
+              Text(
+                '${(proporcion * 100).round()} %',
+                style: const TextStyle(
+                  color: EstadoColors.solucionado,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: proporcion,
+              minHeight: 10,
+              backgroundColor: Colors.grey.shade200,
+              color: EstadoColors.solucionado,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tarjetaCuenta() {
+    final email = (_perfil?['email'] ?? '').toString();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          _filaCuenta(
+            Icons.email_outlined,
+            'Correo electrónico',
+            email.isEmpty ? '-' : email,
+          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          _filaCuenta(
+            Icons.fingerprint,
+            'Verificación biométrica',
+            _metodoBiometricoLabel(_perfil?['metodo_verificacion']),
+          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          _filaCuenta(
+            Icons.calendar_month_outlined,
+            'Miembro desde',
+            _miembroDesde(_perfil?['fecha_registro']?.toString()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filaCuenta(IconData icono, String titulo, String valor) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppTheme.primario.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icono, color: AppTheme.primario, size: 20),
+      ),
+      title: Text(
+        titulo,
+        style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+      ),
+      subtitle: Text(
+        valor,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade900,
+        ),
+      ),
+    );
+  }
+}
+
+/// Tarjeta KPI: franja de color del estado, etiqueta y número animado.
+class _KpiCard extends StatelessWidget {
+  final String etiqueta;
+  final int valor;
+  final Color color;
+  final IconData icono;
+
+  const _KpiCard({
+    required this.etiqueta,
+    required this.valor,
+    required this.color,
+    required this.icono,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 5, color: color),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(icono, color: color, size: 18),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              etiqueta,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0, end: valor.toDouble()),
+                        duration: const Duration(milliseconds: 700),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, v, _) => Text(
+                          v.round().toString(),
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            color: color,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

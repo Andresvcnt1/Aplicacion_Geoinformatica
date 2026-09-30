@@ -29,33 +29,28 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: _screens),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.teal,
-        unselectedItemColor: Colors.grey.shade600,
-        backgroundColor: Colors.white,
-        elevation: 8,
-        items: const [
-          BottomNavigationBarItem(
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onItemTapped,
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.map_outlined),
-            activeIcon: Icon(Icons.map),
+            selectedIcon: Icon(Icons.map),
             label: 'Mapa',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.dynamic_feed_outlined),
-            activeIcon: Icon(Icons.dynamic_feed),
+            selectedIcon: Icon(Icons.dynamic_feed),
             label: 'Publicaciones',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.add_circle_outline),
-            activeIcon: Icon(Icons.add_circle),
+            selectedIcon: Icon(Icons.add_circle),
             label: 'Reportar',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
+            selectedIcon: Icon(Icons.person),
             label: 'Perfil',
           ),
         ],
