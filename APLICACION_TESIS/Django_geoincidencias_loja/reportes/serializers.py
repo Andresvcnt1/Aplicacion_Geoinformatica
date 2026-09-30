@@ -108,12 +108,13 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
 class PerfilSerializer(serializers.ModelSerializer):
     foto_perfil_url = serializers.SerializerMethodField()
     total_reportes = serializers.SerializerMethodField()
+    reportes_por_estado = serializers.SerializerMethodField()
 
     class Meta:
         model = Usuario
         fields = [
             'cedula', 'first_name', 'last_name', 'email', 'metodo_verificacion',
-            'foto_perfil_url', 'total_reportes', 'fecha_registro',
+            'foto_perfil_url', 'total_reportes', 'reportes_por_estado', 'fecha_registro',
         ]
 
     def get_foto_perfil_url(self, obj):
@@ -124,3 +125,14 @@ class PerfilSerializer(serializers.ModelSerializer):
 
     def get_total_reportes(self, obj):
         return obj.incidencias.count()
+
+    def get_reportes_por_estado(self, obj):
+        from django.db.models import Count
+        conteo = dict(
+            obj.incidencias.order_by().values_list('estado').annotate(n=Count('id'))
+        )
+        return {
+            'Recibido': conteo.get('Recibido', 0),
+            'En proceso': conteo.get('En proceso', 0),
+            'Solucionado': conteo.get('Solucionado', 0),
+        }
