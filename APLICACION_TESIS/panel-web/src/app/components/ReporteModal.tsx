@@ -17,6 +17,7 @@ interface Incidencia {
   fecha_creacion?: string;
   usuario_nombre?: string;
   foto_url?: string;
+  foto?: string; // ← CAMBIO 1: el endpoint /reportes/ manda la foto bajo este nombre
   geometry?: { type: string; coordinates: [number, number] };
   ubicacion?: { type: string; coordinates: [number, number] } | string;
 }
@@ -79,6 +80,8 @@ export default function ReporteModal({
   }, [onClose]);
 
   const coords = getCoordinates(incidencia);
+  // ← CAMBIO 2: normaliza el nombre del campo (acepta foto_url o foto)
+  const fotoEvidencia = incidencia.foto_url ?? incidencia.foto;
 
   const cambiarEstado = async (nuevoEstado: string) => {
     if (nuevoEstado === estadoActual || guardando) return;
@@ -124,9 +127,10 @@ export default function ReporteModal({
         </div>
 
         <div className="px-5 py-4">
-          {incidencia.foto_url ? (
+          {/* ← CAMBIO 3: usa fotoEvidencia en vez de incidencia.foto_url */}
+          {fotoEvidencia ? (
             <img
-              src={incidencia.foto_url}
+              src={fotoEvidencia}
               alt={`Evidencia: ${incidencia.categoria}`}
               className="h-56 w-full rounded-lg object-cover"
             />

@@ -18,6 +18,7 @@ interface Incidencia {
   estado: string;
   fecha_creacion?: string;
   usuario_nombre?: string;
+  foto_url?: string;
   foto?: string;
   geometry?: { type: string; coordinates: [number, number] };
   ubicacion?: { type: string; coordinates: [number, number] } | string;
