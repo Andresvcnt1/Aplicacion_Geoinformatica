@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .informes import generar_informe_mensual
+from .informe_mensual import generar_informe_mensual
 from .models import GeocercaMunicipal, HistorialEstado, Incidencia, Usuario
 from .serializers import (
     HistorialEstadoSerializer,
