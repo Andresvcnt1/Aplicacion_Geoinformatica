@@ -9,9 +9,15 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/reportes/', include('reportes.urls')),
     path('api/incidencias-geojson/', views.incidencias_geojson, name='incidencias-geojson'),
-    path('panel/', views.panel_administrativo, name='panel_administrativo'),  
-    path('api/incidencias/<int:inc_id>/estado/', views.ActualizarEstadoView.as_view(), name='actualizar_estado'),    path('api/registro/', views.RegistroView.as_view(), name='registro'), 
-    path('api/login/', views.LoginView.as_view(), name='login'), 
+    path('panel/', views.panel_administrativo, name='panel_administrativo'),
+
+    # Ciclo de vida y trazabilidad
+    path('api/incidencias/<int:inc_id>/estado/', views.ActualizarEstadoView.as_view(), name='actualizar_estado'),
+    path('api/incidencias/<int:inc_id>/historial/', views.HistorialIncidenciaView.as_view(), name='historial_incidencia'),
+    path('api/informe-mensual/', views.InformeMensualPDFView.as_view(), name='informe_mensual'),
+
+    path('api/registro/', views.RegistroView.as_view(), name='registro'),
+    path('api/login/', views.LoginView.as_view(), name='login'),
     path('api/admin/access/', views.AdminAccessView.as_view(), name='admin-access'),
     path('api/perfil/', views.PerfilView.as_view(), name='perfil'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

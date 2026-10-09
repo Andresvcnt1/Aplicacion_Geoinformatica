@@ -1,8 +1,9 @@
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.gis.geos import Point
+from django.db.models import Count
 from rest_framework import serializers
 
-from .models import Usuario, Incidencia, GeocercaMunicipal
+from .models import Usuario, Incidencia, GeocercaMunicipal, HistorialEstado
 
 
 class IncidenciaSerializer(serializers.ModelSerializer):
@@ -10,27 +11,29 @@ class IncidenciaSerializer(serializers.ModelSerializer):
     longitud = serializers.FloatField(write_only=True, required=True)
     usuario_nombre = serializers.SerializerMethodField()
     usuario_foto = serializers.SerializerMethodField()
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
 
     class Meta:
         model = Incidencia
         fields = [
             'id', 'categoria', 'descripcion', 'foto', 'fecha_creacion',
-            'estado', 'latitud', 'longitud', 'ubicacion', 'usuario_nombre', 'usuario_foto',
+            'estado', 'estado_display', 'latitud', 'longitud', 'ubicacion',
+            'usuario_nombre', 'usuario_foto',
         ]
         extra_kwargs = {
             'ubicacion': {'required': False, 'allow_null': True},
             'foto': {'required': True, 'allow_null': False},
             'fecha_creacion': {'read_only': True},
-            'estado': {'read_only': False},
+            # El ciudadano NO puede fijar el estado: solo cambia vía cambiar_estado()
+            'estado': {'read_only': True},
         }
-    
-    # CAMBIO: Mostrar Nombre y Apellido en las publicaciones
+
+    # Mostrar Nombre y Apellido en las publicaciones
     def get_usuario_nombre(self, obj):
         if obj.usuario:
             nombre = obj.usuario.first_name or ''
             apellido = obj.usuario.last_name or ''
             nombre_completo = f"{nombre} {apellido}".strip()
-            # Si tiene nombre y apellido, los muestra. Si no, muestra la cédula.
             return nombre_completo if nombre_completo else obj.usuario.cedula
         return 'Ciudadano anónimo'
 
@@ -47,15 +50,15 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         if lat is not None and lng is not None:
             punto = Point(lng, lat, srid=4326)
             dentro_de_geocerca = GeocercaMunicipal.objects.filter(
-                area__contains=punto, 
+                area__contains=punto,
                 activa=True
             ).exists()
-            
+
             if not dentro_de_geocerca:
                 raise serializers.ValidationError({
                     "ubicacion": "La ubicación reportada está fuera de la zona de competencia municipal."
                 })
-        
+
         return attrs
 
     def create(self, validated_data):
@@ -63,6 +66,25 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         lng = validated_data.pop('longitud')
         validated_data['ubicacion'] = Point(lng, lat, srid=4326)
         return super().create(validated_data)
+
+
+class HistorialEstadoSerializer(serializers.ModelSerializer):
+    """Línea de tiempo de una incidencia (HU004). El responsable solo se muestra al personal."""
+    estado_nuevo_display = serializers.CharField(source='get_estado_nuevo_display', read_only=True)
+    responsable = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HistorialEstado
+        fields = [
+            'id', 'estado_anterior', 'estado_nuevo', 'estado_nuevo_display',
+            'fecha_cambio', 'observacion', 'responsable',
+        ]
+
+    def get_responsable(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_staff:
+            return obj.usuario_responsable.username
+        return None
 
 
 class RegistroUsuarioSerializer(serializers.ModelSerializer):
@@ -84,15 +106,13 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        # Extraer datos
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
         cedula = validated_data.get('cedula')
-        
-        # CAMBIO: Usar la cédula directamente como username (más limpio que usuario_123)
-        username = cedula 
-        
-        # Crear el usuario
+
+        # Usar la cédula directamente como username
+        username = cedula
+
         user = Usuario.objects.create_user(
             username=username,
             password=password,
@@ -127,12 +147,11 @@ class PerfilSerializer(serializers.ModelSerializer):
         return obj.incidencias.count()
 
     def get_reportes_por_estado(self, obj):
-        from django.db.models import Count
+        # Claves = etiquetas de los 6 estados ('Recibido', 'En revisión', ...)
         conteo = dict(
             obj.incidencias.order_by().values_list('estado').annotate(n=Count('id'))
         )
         return {
-            'Recibido': conteo.get('Recibido', 0),
-            'En proceso': conteo.get('En proceso', 0),
-            'Solucionado': conteo.get('Solucionado', 0),
+            etiqueta: conteo.get(valor, 0)
+            for valor, etiqueta in Incidencia.Estado.choices
         }
