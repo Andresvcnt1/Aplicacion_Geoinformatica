@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../core/theme.dart';
-import '../../../models/freemium.dart';
+import '../../../../../core/theme.dart';
+import '../../../../../models/freemium.dart';
 
 /// Tarjeta de publicidad del feed (solo la ven los usuarios sin VIP).
 class AnuncioCard extends StatelessWidget {

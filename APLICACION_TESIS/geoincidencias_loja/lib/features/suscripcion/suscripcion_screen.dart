@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../core/api_service.dart';
-import '../../core/theme.dart';
-import '../../models/freemium.dart';
+import '../../../core/api_service.dart';
+import '../../../core/theme.dart';
+import '../../../models/freemium.dart';
 
 /// Pantalla "Hazte VIP": muestra el plan del backend y permite activarlo o cancelarlo.
 /// La pasarela de pago es SIMULADA: no se realiza ningún cobro real.
