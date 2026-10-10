@@ -89,7 +89,7 @@ def incidencias_geojson(request):
                 "categoria": inc.categoria,
                 "descripcion": inc.descripcion,
                 "foto_url": request.build_absolute_uri(inc.foto.url) if inc.foto else None,
-                "fecha_reporte": inc.fecha_creacion.strftime('%Y-%m-%d %H:%M') if hasattr(inc, 'fecha_creacion') else None,
+                "fecha_reporte": timezone.localtime(inc.fecha_creacion).strftime('%Y-%m-%d %H:%M'),
                 "estado": inc.estado if hasattr(inc, 'estado') else None
             }
         })
