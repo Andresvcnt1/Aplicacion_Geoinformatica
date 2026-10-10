@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../models/incidencia.dart';
 
 class MapaIncidenciasScreen extends StatefulWidget {
   const MapaIncidenciasScreen({super.key});
@@ -24,23 +25,36 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
     _cargarIncidencias();
   }
 
-  // Color del pin según estado (alias conservados; 3 base alineados a EstadoColors)
-  Color _getColorPorEstado(String? estado) {
-    if (estado == null) return AppTheme.primario;
-    final e = estado.toLowerCase();
-    if (e.contains('recibido') ||
-        e.contains('pendiente') ||
-        e.contains('nuevo')) {
-      return EstadoColors.recibido;
-    } else if (e.contains('proceso') || e.contains('revision')) {
-      return EstadoColors.enProceso;
-    } else if (e.contains('resuelto') ||
-        e.contains('finalizado') ||
-        e.contains('solucionado') ||
-        e.contains('cerrado')) {
-      return EstadoColors.solucionado;
+  /// Normaliza cualquier formato de estado ("En revisión", "en_revision",
+  /// "Solucionado" antiguo...) a la clave del backend.
+  String _claveEstado(String? estado) {
+    var s = (estado ?? '').toLowerCase().trim();
+    const acentos = {
+      'á': 'a',
+      'é': 'e',
+      'í': 'i',
+      'ó': 'o',
+      'ú': 'u',
+      'ü': 'u',
+    };
+    acentos.forEach((k, v) => s = s.replaceAll(k, v));
+    s = s.replaceAll(' ', '_');
+    if (s == 'solucionado' || s == 'resuelto' || s == 'finalizado') {
+      return 'subsanado';
     }
-    return AppTheme.primario;
+    if (s == 'pendiente' || s == 'nuevo') return 'recibido';
+    return s;
+  }
+
+  Color _getColorPorEstado(String? estado) =>
+      EstadoHelper.color(_claveEstado(estado));
+
+  String _etiquetaEstado(String? estado) {
+    final clave = _claveEstado(estado);
+    if (EstadoHelper.desdeValor(clave) == EstadoIncidencia.desconocido) {
+      return estado ?? 'Desconocido';
+    }
+    return EstadoHelper.etiqueta(clave);
   }
 
   // Ícono del pin según categoría (mismo esquema que el feed de publicaciones)
@@ -68,7 +82,7 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
         final features = data['features'] as List;
 
         setState(() {
@@ -78,7 +92,7 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
 
             final double lat = (coords[1] is num) ? coords[1].toDouble() : 0.0;
             final double lng = (coords[0] is num) ? coords[0].toDouble() : 0.0;
-            final String estado = props['estado'] ?? 'Desconocido';
+            final String estado = (props['estado'] ?? 'Desconocido').toString();
             final Color colorPin = _getColorPorEstado(estado);
             final IconData iconoPin = _iconoCategoria(props['categoria']);
 
@@ -112,9 +126,10 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
 
   void _mostrarDetalle(Map<String, dynamic> props) {
     final String? fotoUrl = props['foto_url'];
-    final String estado = props['estado'] ?? 'Desconocido';
+    final String estadoRaw = (props['estado'] ?? 'Desconocido').toString();
+    final String estado = _etiquetaEstado(estadoRaw);
     final String categoria = props['categoria'] ?? 'Sin categoría';
-    final Color colorEstado = _getColorPorEstado(estado);
+    final Color colorEstado = _getColorPorEstado(estadoRaw);
     final IconData iconoCat = _iconoCategoria(props['categoria']);
 
     showModalBottomSheet(
@@ -230,16 +245,22 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
   Widget build(BuildContext context) {
     final canPop = ModalRoute.of(context)?.canPop ?? false;
 
+    const estadosLeyenda = [
+      'recibido',
+      'en_revision',
+      'en_proceso',
+      'subsanado',
+      'no_viable',
+      'cerrado',
+    ];
+
     return Scaffold(
       body: Stack(
         children: [
           // Mapa SIEMPRE visible (incluso cargando)
           FlutterMap(
             options: const MapOptions(
-              initialCenter: LatLng(
-                -4.0085,
-                -79.2239,
-              ), // Centro de Loja (intacto)
+              initialCenter: LatLng(-4.0085, -79.2239), // Centro de Loja
               initialZoom: 13.0,
             ),
             children: [
@@ -251,7 +272,6 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
             ],
           ),
 
-          // Isla flotante superior
           // Isla flotante superior (gradiente, igual que Publicaciones)
           SafeArea(
             child: Padding(
@@ -328,7 +348,7 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
             ),
           ),
 
-          // Leyenda inferior-izquierda
+          // Leyenda inferior-izquierda (6 estados)
           Positioned(
             left: 12,
             bottom: 24,
@@ -348,18 +368,14 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
-                children: const [
-                  _LeyendaItem(color: EstadoColors.recibido, texto: 'Recibido'),
-                  SizedBox(height: 6),
-                  _LeyendaItem(
-                    color: EstadoColors.enProceso,
-                    texto: 'En proceso',
-                  ),
-                  SizedBox(height: 6),
-                  _LeyendaItem(
-                    color: EstadoColors.solucionado,
-                    texto: 'Solucionado',
-                  ),
+                children: [
+                  for (var i = 0; i < estadosLeyenda.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 6),
+                    _LeyendaItem(
+                      color: EstadoHelper.color(estadosLeyenda[i]),
+                      texto: EstadoHelper.etiqueta(estadosLeyenda[i]),
+                    ),
+                  ],
                 ],
               ),
             ),

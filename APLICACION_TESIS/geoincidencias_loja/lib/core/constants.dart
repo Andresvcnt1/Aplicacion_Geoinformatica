@@ -9,4 +9,8 @@ class ApiConstants {
   static String get registroUrl => '$baseUrl$registroEndpoint';
   static String get perfilUrl => '$baseUrl$perfilEndpoint';
   static String get tokenRefreshUrl => '$baseUrl/api/token/refresh/';
+
+  /// Historial de estados de una incidencia (requiere sesión).
+  static String historialUrl(int incidenciaId) =>
+      '$baseUrl/api/incidencias/$incidenciaId/historial/';
 }

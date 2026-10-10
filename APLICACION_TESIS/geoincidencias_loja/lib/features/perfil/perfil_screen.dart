@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_service.dart';
 import '../../core/aparecer.dart';
 import '../../core/theme.dart';
+import '../../models/incidencia.dart';
 import '../auth/login_screen.dart';
+import '../historial/historial_screen.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
@@ -22,6 +24,16 @@ class _PerfilScreenState extends State<PerfilScreen> {
   bool _cargando = true;
   bool _subiendoFoto = false;
   String? _error;
+
+  /// (etiqueta que manda el backend en reportes_por_estado, valor del estado)
+  static const List<(String, String)> _estadosKpi = [
+    ('Recibido', 'recibido'),
+    ('En revisión', 'en_revision'),
+    ('En proceso', 'en_proceso'),
+    ('Subsanado', 'subsanado'),
+    ('No viable', 'no_viable'),
+    ('Cerrado', 'cerrado'),
+  ];
 
   @override
   void initState() {
@@ -252,7 +264,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
       decoration: const BoxDecoration(
-        // Gradiente UNIFICADO a la misma dirección que Publicaciones/Reportar
         gradient: LinearGradient(
           colors: [AppTheme.primarioOscuro, AppTheme.primario],
           begin: Alignment.topLeft,
@@ -265,7 +276,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
       ),
       child: Column(
         children: [
-          // >>> PATRÓN que te gustó: título bold + subtítulo <<<
           Align(
             alignment: Alignment.centerLeft,
             child: Column(
@@ -292,7 +302,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
             ),
           ),
           const SizedBox(height: 18),
-
           Stack(
             children: [
               CircleAvatar(
@@ -390,65 +399,74 @@ class _PerfilScreenState extends State<PerfilScreen> {
       return Row(children: [Expanded(child: tarjetaTotal)]);
     }
 
-    final recibidos = _numero(porEstado['Recibido']);
-    final enProceso = _numero(porEstado['En proceso']);
-    final solucionados = _numero(porEstado['Solucionado']);
+    final tarjetas = <Widget>[];
+    for (var i = 0; i < _estadosKpi.length; i++) {
+      final (etiqueta, valor) = _estadosKpi[i];
+      tarjetas.add(
+        _KpiCard(
+          etiqueta: etiqueta,
+          orden: i + 3 > 6 ? 6 : i + 3,
+          valor: _numero(porEstado[etiqueta]),
+          color: EstadoHelper.color(valor),
+          icono: EstadoHelper.icono(valor),
+        ),
+      );
+    }
+
+    // Resueltos = Subsanado + Cerrado (igual que el panel web).
+    final resueltos =
+        _numero(porEstado['Subsanado']) + _numero(porEstado['Cerrado']);
 
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(child: tarjetaTotal),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _KpiCard(
-                etiqueta: 'Recibido',
-                orden: 3,
-                valor: recibidos,
-                color: EstadoColors.recibido,
-                icono: Icons.schedule,
-              ),
-            ),
-          ],
-        ),
+        tarjetaTotal,
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _KpiCard(
-                etiqueta: 'En proceso',
-                orden: 4,
-                valor: enProceso,
-                color: EstadoColors.enProceso,
-                icono: Icons.autorenew,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _KpiCard(
-                etiqueta: 'Solucionado',
-                orden: 5,
-                valor: solucionados,
-                color: EstadoColors.solucionado,
-                icono: Icons.check_circle_outline,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
+        for (var i = 0; i < tarjetas.length; i += 2) ...[
+          Row(
+            children: [
+              Expanded(child: tarjetas[i]),
+              const SizedBox(width: 12),
+              Expanded(child: tarjetas[i + 1]),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+        const SizedBox(height: 2),
         if (total == 0)
           Text(
             'Todavía no has enviado reportes. Toca Reportar para crear el primero.',
             style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
           )
-        else
-          Aparecer(orden: 6, child: _barraResolucion(total, solucionados)),
+        else ...[
+          Aparecer(orden: 6, child: _barraResolucion(total, resueltos)),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HistorialScreen()),
+              ),
+              icon: const Icon(Icons.timeline),
+              label: const Text('Ver seguimiento de mis reportes'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primario,
+                side: const BorderSide(color: AppTheme.primario),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _barraResolucion(int total, int solucionados) {
-    final proporcion = total == 0 ? 0.0 : solucionados / total;
+  Widget _barraResolucion(int total, int resueltos) {
+    final proporcion = total == 0 ? 0.0 : resueltos / total;
+    final colorOk = EstadoHelper.color('subsanado');
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -463,15 +481,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Reportes solucionados',
+                'Reportes resueltos',
                 style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
               ),
               Text(
                 '${(proporcion * 100).round()} %',
-                style: const TextStyle(
-                  color: EstadoColors.solucionado,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(color: colorOk, fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -482,7 +497,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
               value: proporcion,
               minHeight: 10,
               backgroundColor: Colors.grey.shade200,
-              color: EstadoColors.solucionado,
+              color: colorOk,
             ),
           ),
         ],

@@ -134,7 +134,7 @@ AUTH_USER_MODEL = 'reportes.Usuario'  # Referencia al modelo de usuario personal
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Guayaquil'
 
 USE_I18N = True
 

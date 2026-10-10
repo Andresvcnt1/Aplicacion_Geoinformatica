@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'constants.dart';
+import '../models/incidencia.dart';
 
 class ApiService {
   Future<String?> _getToken() async {
@@ -99,6 +100,64 @@ class ApiService {
       return jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
     }
     throw Exception('Error al cargar publicaciones (${response.statusCode})');
+  }
+
+  /// Reportes del usuario logueado (requiere filtro ?mios=1 en el backend).
+  Future<List<Incidencia>> obtenerMisReportes() async {
+    Future<http.Response> hacerPeticion() async {
+      final headers = await _authHeaders();
+      return http.get(
+        Uri.parse('${ApiConstants.reportesUrl}?mios=1'),
+        headers: headers,
+      );
+    }
+
+    var response = await hacerPeticion();
+
+    if (response.statusCode == 401) {
+      final renovado = await _refrescarToken();
+      if (renovado) {
+        response = await hacerPeticion();
+      }
+    }
+
+    if (response.statusCode == 200) {
+      final lista =
+          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      return lista
+          .map((e) => Incidencia.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw Exception('Error al cargar mis reportes (${response.statusCode})');
+  }
+
+  /// Línea de tiempo de estados de una incidencia (requiere sesión).
+  Future<List<HistorialItem>> obtenerHistorial(int incidenciaId) async {
+    Future<http.Response> hacerPeticion() async {
+      final headers = await _authHeaders();
+      return http.get(
+        Uri.parse(ApiConstants.historialUrl(incidenciaId)),
+        headers: headers,
+      );
+    }
+
+    var response = await hacerPeticion();
+
+    if (response.statusCode == 401) {
+      final renovado = await _refrescarToken();
+      if (renovado) {
+        response = await hacerPeticion();
+      }
+    }
+
+    if (response.statusCode == 200) {
+      final lista =
+          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      return lista
+          .map((e) => HistorialItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw Exception('Error al cargar historial (${response.statusCode})');
   }
 
   /// Obtiene los datos del perfil del usuario logueado.

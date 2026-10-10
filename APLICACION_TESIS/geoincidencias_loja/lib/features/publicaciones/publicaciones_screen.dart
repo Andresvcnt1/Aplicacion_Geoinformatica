@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../../core/api_service.dart';
 import '../../core/aparecer.dart';
 import '../../core/theme.dart';
+import '../../models/incidencia.dart';
+import '../historial/incidencia_detalle_screen.dart';
 
 class PublicacionesScreen extends StatefulWidget {
   const PublicacionesScreen({super.key});
@@ -60,21 +62,6 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
 
   _CategoriaMeta _metaCategoria(String categoria) =>
       _categorias[categoria] ?? _categorias['OTRO']!;
-
-  /// Colores reales del estado en el backend: "Recibido", "En proceso",
-  /// "Solucionado" (con mayúscula inicial, sin guion bajo).
-  Color _colorEstado(String estado) {
-    switch (estado.trim().toLowerCase()) {
-      case 'recibido':
-        return EstadoColors.recibido;
-      case 'en proceso':
-        return EstadoColors.enProceso;
-      case 'solucionado':
-        return EstadoColors.solucionado;
-      default:
-        return Colors.grey;
-    }
-  }
 
   String _formatearFecha(String? fechaIso) {
     if (fechaIso == null) return '';
@@ -155,19 +142,36 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
               itemCount: publicaciones.length,
               itemBuilder: (context, index) {
                 final post = publicaciones[index] as Map<String, dynamic>;
+                final estadoValor = (post['estado'] ?? 'recibido').toString();
+                final estadoTexto =
+                    (post['estado_display'] ??
+                            EstadoHelper.etiqueta(estadoValor))
+                        .toString();
                 return Aparecer(
                   orden: index > 6 ? 6 : index,
-                  child: _PublicacionCard(
-                    categoria: post['categoria'] ?? 'OTRO',
-                    descripcion: post['descripcion'],
-                    fotoUrl: post['foto'],
-                    estado: post['estado'] ?? 'Recibido',
-                    usuarioNombre:
-                        post['usuario_nombre'] ?? 'Ciudadano anónimo',
-                    usuarioFoto: post['usuario_foto'],
-                    fecha: _formatearFecha(post['fecha_creacion']),
-                    metaCategoria: _metaCategoria(post['categoria'] ?? 'OTRO'),
-                    colorEstado: _colorEstado(post['estado'] ?? 'Recibido'),
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => IncidenciaDetalleScreen(
+                          incidencia: Incidencia.fromJson(post),
+                        ),
+                      ),
+                    ),
+                    child: _PublicacionCard(
+                      categoria: post['categoria'] ?? 'OTRO',
+                      descripcion: post['descripcion'],
+                      fotoUrl: post['foto'],
+                      estado: estadoTexto,
+                      usuarioNombre:
+                          post['usuario_nombre'] ?? 'Ciudadano anónimo',
+                      usuarioFoto: post['usuario_foto'],
+                      fecha: _formatearFecha(post['fecha_creacion']),
+                      metaCategoria: _metaCategoria(
+                        post['categoria'] ?? 'OTRO',
+                      ),
+                      colorEstado: EstadoHelper.color(estadoValor),
+                    ),
                   ),
                 );
               },
