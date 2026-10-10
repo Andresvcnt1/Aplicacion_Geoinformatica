@@ -18,6 +18,8 @@ interface Incidencia {
   descripcion: string;
   estado: string;
   estado_display?: string;
+  prioritaria?: boolean;
+  anonimo?: boolean;
   fecha_creacion?: string;
   usuario_nombre?: string;
   foto_url?: string;
@@ -142,6 +144,7 @@ export default function DashboardPage() {
   const [error, setError]                               = useState('');
   const [filtroEstado, setFiltroEstado]                 = useState<'Todos' | EstadoValor>('Todos');
   const [adminUsername, setAdminUsername]               = useState('');
+  const [soloPrioritarios, setSoloPrioritarios]       = useState(false);
   const hoy = new Date();
   const [mesInforme, setMesInforme]                     = useState(hoy.getMonth() + 1);
   const [anioInforme, setAnioInforme]                   = useState(hoy.getFullYear());
@@ -149,8 +152,11 @@ export default function DashboardPage() {
   const [errorInforme, setErrorInforme]                 = useState('');
   const router = useRouter();
 
-  const reportesFiltrados =
-    filtroEstado === 'Todos' ? incidencias : incidencias.filter((i) => i.estado === filtroEstado);
+  const reportesFiltrados = incidencias.filter(
+    (i) =>
+      (filtroEstado === 'Todos' || i.estado === filtroEstado) &&
+      (!soloPrioritarios || i.prioritaria === true),
+  );
 
   useEffect(() => {
     if (!localStorage.getItem('access_token')) { router.replace('/login'); return; }
@@ -183,7 +189,7 @@ export default function DashboardPage() {
   };
 
   const exportarCSV = () => {
-    const headers = ['ID','Categoría','Descripción','Reportado por','Estado','Fecha'];
+    const headers = ['ID','Categoría','Descripción','Reportado por','Estado','Fecha','Prioridad','Anónimo'];
     const rows = reportesFiltrados.map((inc) => [
       inc.id,
       CATEGORIA_META[inc.categoria]?.label || inc.categoria,
@@ -191,6 +197,8 @@ export default function DashboardPage() {
       inc.usuario_nombre || 'Anónimo',
       etiquetaEstado(inc.estado),
       inc.fecha_creacion ? new Date(inc.fecha_creacion).toLocaleString('es-EC') : '',
+      inc.prioritaria ? 'VIP' : 'Normal',
+      inc.anonimo ? 'Sí' : 'No',
     ]);
     const csv  = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -257,6 +265,8 @@ export default function DashboardPage() {
   const recibidas  = contar('recibido');
   const enGestion  = contar('en_revision', 'en_proceso');
   const resueltas  = contar('subsanado', 'cerrado');
+
+  const prioritarias = incidencias.filter((i) => i.prioritaria === true).length;
 
   const tabs: { key: 'Todos' | EstadoValor; label: string; count: number; dot: string }[] = [
     { key: 'Todos', label: 'Todos', count: incidencias.length, dot: '#334155' },
@@ -440,6 +450,25 @@ export default function DashboardPage() {
               )}
             </div>
 
+            {/* Filtro de prioridad: reportes de suscriptores VIP */}
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => setSoloPrioritarios((v) => !v)}
+                aria-pressed={soloPrioritarios}
+                className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  soloPrioritarios
+                    ? 'border-amber-500 bg-amber-500 text-white'
+                    : 'border-amber-300 bg-amber-50 text-amber-800 hover:border-amber-400 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                }`}
+              >
+                ★ Solo prioritarios (VIP)
+                <span className={`rounded-full px-1.5 text-xs ${soloPrioritarios ? 'bg-white/25' : 'bg-amber-100 dark:bg-amber-900'}`}>
+                  {prioritarias}
+                </span>
+              </button>
+            </div>
+
             {/* Tabs filtro */}
             <div className="mb-4 flex flex-wrap gap-2">
               {tabs.map((tab) => (
@@ -493,6 +522,20 @@ export default function DashboardPage() {
                           <p>{inc.usuario_nombre || 'Anónimo'}</p>
                           <p>{inc.fecha_creacion ? new Date(inc.fecha_creacion).toLocaleDateString('es-EC') : '—'}</p>
                         </div>
+                        {(inc.prioritaria || inc.anonimo) && (
+                          <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center">
+                            {inc.prioritaria && (
+                              <span className="whitespace-nowrap rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                ★ Prioritario
+                              </span>
+                            )}
+                            {inc.anonimo && (
+                              <span className="whitespace-nowrap rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                Anónimo
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <span className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${claseBadge(inc.estado)}`}>
                           {etiquetaEstado(inc.estado)}
                         </span>

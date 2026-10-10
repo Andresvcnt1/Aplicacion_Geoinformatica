@@ -23,6 +23,8 @@ interface Incidencia {
   categoria: string;
   descripcion: string;
   estado: string;
+  prioritaria?: boolean;
+  anonimo?: boolean;
   fecha_creacion?: string;
   usuario_nombre?: string;
   foto_url?: string;
@@ -183,13 +185,31 @@ export default function ReporteModal({
             </div>
           )}
 
+          {(incidencia.prioritaria || incidencia.anonimo) && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {incidencia.prioritaria && (
+                <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  ★ Prioritario · suscriptor VIP: atender primero
+                </span>
+              )}
+              {incidencia.anonimo && (
+                <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  Reporte anónimo
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="mt-4 space-y-1">
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{incidencia.categoria}</p>
             <p className="text-slate-800 dark:text-slate-200">{incidencia.descripcion || 'Sin descripción'}</p>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
-            <span>Reportado por: {incidencia.usuario_nombre || 'Anónimo'}</span>
+            <span>
+              Reportado por: {incidencia.usuario_nombre || 'Anónimo'}
+              {incidencia.anonimo ? ' (identidad oculta al público)' : ''}
+            </span>
             {incidencia.fecha_creacion && (
               <span>{new Date(incidencia.fecha_creacion).toLocaleString('es-EC')}</span>
             )}
