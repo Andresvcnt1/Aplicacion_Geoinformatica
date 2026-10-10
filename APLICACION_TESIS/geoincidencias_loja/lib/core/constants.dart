@@ -10,6 +10,10 @@ class ApiConstants {
   static String get perfilUrl => '$baseUrl$perfilEndpoint';
   static String get tokenRefreshUrl => '$baseUrl/api/token/refresh/';
 
+  /// Modelo freemium: suscripción VIP y publicidad.
+  static String get suscripcionUrl => '$baseUrl/api/suscripcion/';
+  static String get anunciosUrl => '$baseUrl/api/anuncios/';
+
   /// Historial de estados de una incidencia (requiere sesión).
   static String historialUrl(int incidenciaId) =>
       '$baseUrl/api/incidencias/$incidenciaId/historial/';

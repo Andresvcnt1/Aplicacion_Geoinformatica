@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'constants.dart';
+import '../models/freemium.dart';
 import '../models/incidencia.dart';
 
 class ApiService {
@@ -51,13 +52,29 @@ class ApiService {
     }
   }
 
+  /// Ejecuta una petición y, si responde 401, renueva el token y la repite una vez.
+  Future<http.Response> _conReintento(
+    Future<http.Response> Function() peticion,
+  ) async {
+    var response = await peticion();
+    if (response.statusCode == 401) {
+      final renovado = await _refrescarToken();
+      if (renovado) {
+        response = await peticion();
+      }
+    }
+    return response;
+  }
+
   /// Envía un nuevo reporte de incidencia (requiere sesión activa).
+  /// [anonimo] solo lo acepta el backend para suscriptores VIP (si no, responde 403).
   Future<http.Response> enviarReporte({
     required String categoria,
     required String descripcion,
     required double latitud,
     required double longitud,
     File? foto,
+    bool anonimo = false,
   }) async {
     Future<http.Response> hacerPeticion() async {
       var request = http.MultipartRequest(
@@ -72,6 +89,7 @@ class ApiService {
       request.fields['descripcion'] = descripcion;
       request.fields['latitud'] = latitud.toString();
       request.fields['longitud'] = longitud.toString();
+      request.fields['anonimo'] = anonimo ? 'true' : 'false';
 
       if (foto != null) {
         request.files.add(await http.MultipartFile.fromPath('foto', foto.path));
@@ -214,5 +232,85 @@ class ApiService {
           as Map<String, dynamic>;
     }
     throw Exception('Error al actualizar foto (${response.statusCode})');
+  }
+
+  // ───────────────────────── Modelo freemium ─────────────────────────
+
+  /// Publicidad del feed. Los suscriptores VIP reciben lista vacía.
+  /// Un access_token vencido haría que el backend responda 401 incluso en este
+  /// endpoint público: se renueva, y si no se puede, se pide como invitado.
+  Future<List<Anuncio>> obtenerAnuncios() async {
+    Future<http.Response> conSesion() async {
+      final headers = await _authHeaders();
+      return http.get(Uri.parse(ApiConstants.anunciosUrl), headers: headers);
+    }
+
+    var response = await conSesion();
+
+    if (response.statusCode == 401) {
+      final renovado = await _refrescarToken();
+      response = renovado
+          ? await conSesion()
+          : await http.get(Uri.parse(ApiConstants.anunciosUrl));
+    }
+
+    if (response.statusCode == 200) {
+      final lista =
+          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      return lista
+          .map((e) => Anuncio.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw Exception('Error al cargar anuncios (${response.statusCode})');
+  }
+
+  /// Estado de la suscripción y datos del plan.
+  Future<Suscripcion> obtenerSuscripcion() async {
+    final response = await _conReintento(() async {
+      final headers = await _authHeaders();
+      return http.get(Uri.parse(ApiConstants.suscripcionUrl), headers: headers);
+    });
+    if (response.statusCode == 200) {
+      return Suscripcion.fromJson(
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+      );
+    }
+    throw Exception('Error al cargar la suscripción (${response.statusCode})');
+  }
+
+  /// Activa o extiende el VIP (pasarela de pago simulada en el backend).
+  Future<Suscripcion> activarVip() async {
+    final response = await _conReintento(() async {
+      final headers = await _authHeaders();
+      return http.post(
+        Uri.parse(ApiConstants.suscripcionUrl),
+        headers: headers,
+      );
+    });
+    if (response.statusCode == 200) {
+      return Suscripcion.fromJson(
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+      );
+    }
+    throw Exception('Error al activar la suscripción (${response.statusCode})');
+  }
+
+  /// Cancela el VIP.
+  Future<Suscripcion> cancelarVip() async {
+    final response = await _conReintento(() async {
+      final headers = await _authHeaders();
+      return http.delete(
+        Uri.parse(ApiConstants.suscripcionUrl),
+        headers: headers,
+      );
+    });
+    if (response.statusCode == 200) {
+      return Suscripcion.fromJson(
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+      );
+    }
+    throw Exception(
+      'Error al cancelar la suscripción (${response.statusCode})',
+    );
   }
 }
