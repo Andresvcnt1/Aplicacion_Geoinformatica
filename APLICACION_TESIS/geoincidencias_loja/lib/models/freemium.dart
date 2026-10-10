@@ -81,3 +81,13 @@ class Suscripcion {
     simulado: json['simulado'] != false,
   );
 }
+
+/// El pago no se pudo completar (tarjeta rechazada o datos inválidos).
+/// [mensaje] viene del servidor y es apto para mostrarlo al usuario.
+class PagoException implements Exception {
+  final String mensaje;
+  const PagoException(this.mensaje);
+
+  @override
+  String toString() => mensaje;
+}

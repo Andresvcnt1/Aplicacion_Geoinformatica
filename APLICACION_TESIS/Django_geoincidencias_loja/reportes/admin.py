@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.gis import admin as gis_admin
 from django.contrib.gis.forms.widgets import OSMWidget
-from .models import Anuncio, GeocercaMunicipal, Incidencia, Usuario
+from .models import Anuncio, GeocercaMunicipal, Incidencia, Usuario, Pago
 
 # ============================================
 # 1. ADMINISTRACIÓN DE USUARIOS (RF004)
@@ -96,3 +96,17 @@ class AnuncioAdmin(admin.ModelAdmin):
     list_display = ('titulo', 'anunciante', 'activo', 'orden')
     list_editable = ('activo', 'orden')
     search_fields = ('titulo', 'anunciante')
+
+@admin.register(Pago)
+class PagoAdmin(admin.ModelAdmin):
+    list_display = ('referencia', 'usuario', 'monto', 'metodo', 'marca',
+                    'ultimos4', 'estado', 'simulado', 'fecha')
+    list_filter = ('estado', 'metodo', 'simulado')
+    search_fields = ('referencia', 'usuario__username', 'usuario__cedula')
+    readonly_fields = [f.name for f in Pago._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False@admin.register(Pago)

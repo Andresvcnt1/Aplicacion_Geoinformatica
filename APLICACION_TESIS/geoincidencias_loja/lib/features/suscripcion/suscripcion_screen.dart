@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../core/api_service.dart';
-import '../../../core/theme.dart';
-import '../../../models/freemium.dart';
+import '../../core/api_service.dart';
+import '../../core/theme.dart';
+import '../../models/freemium.dart';
+import 'pago_screen.dart';
 
 /// Pantalla "Hazte VIP": muestra el plan del backend y permite activarlo o cancelarlo.
 /// La pasarela de pago es SIMULADA: no se realiza ningún cobro real.
@@ -58,24 +59,21 @@ class _SuscripcionScreenState extends State<SuscripcionScreen> {
     ).showSnackBar(SnackBar(content: Text(texto), backgroundColor: color));
   }
 
-  Future<void> _activar() async {
-    setState(() => _procesando = true);
-    try {
-      final s = await _api.activarVip();
-      if (!mounted) return;
-      setState(() {
-        _suscripcion = s;
-        _procesando = false;
-      });
-      _aviso('⭐ VIP activo hasta el ${_fecha(s.vipHasta)}', Colors.teal);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _procesando = false);
-      _aviso(
-        'No se pudo activar la suscripción. Intenta de nuevo.',
-        Colors.redAccent,
-      );
-    }
+  /// Abre el checkout. Si el pago es aprobado, la pantalla de pago devuelve
+  /// la suscripción actualizada.
+  Future<void> _pagar() async {
+    final actual = _suscripcion;
+    if (actual == null) return;
+    final resultado = await Navigator.push<Suscripcion>(
+      context,
+      MaterialPageRoute(builder: (_) => PagoScreen(suscripcion: actual)),
+    );
+    if (!mounted || resultado == null) return;
+    setState(() => _suscripcion = resultado);
+    _aviso(
+      '⭐ Pago aprobado. VIP activo hasta el ${_fecha(resultado.vipHasta)}',
+      Colors.teal,
+    );
   }
 
   Future<void> _cancelar() async {
@@ -263,7 +261,7 @@ class _SuscripcionScreenState extends State<SuscripcionScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Versión de prueba: el pago está simulado y no se realiza ningún cobro.',
+                    'Versión de prueba: el pago está simulado y no se realiza ningún cobro. Usarás una tarjeta de prueba.',
                     style: TextStyle(
                       fontSize: 12.5,
                       color: Colors.blueGrey.shade700,
@@ -278,7 +276,7 @@ class _SuscripcionScreenState extends State<SuscripcionScreen> {
         SizedBox(
           height: 50,
           child: ElevatedButton(
-            onPressed: _procesando ? null : _activar,
+            onPressed: _procesando ? null : _pagar,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primario,
               foregroundColor: Colors.white,
@@ -297,8 +295,8 @@ class _SuscripcionScreenState extends State<SuscripcionScreen> {
                   )
                 : Text(
                     s.esVip
-                        ? 'Extender ${s.plan.dias} días'
-                        : 'Suscribirme por \$${s.plan.precioUsd}',
+                        ? 'Pagar y extender ${s.plan.dias} días'
+                        : 'Pagar \$${s.plan.precioUsd} y suscribirme',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

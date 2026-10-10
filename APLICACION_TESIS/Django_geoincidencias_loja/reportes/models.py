@@ -213,3 +213,28 @@ class Anuncio(models.Model):
 
     def __str__(self):
         return f"{self.anunciante}: {self.titulo}"
+
+class Pago(models.Model):
+    """Cobros de la suscripción VIP. Pasarela SIMULADA: nunca se guarda el número
+    completo de la tarjeta ni el CVV, solo la marca y los últimos 4 dígitos."""
+
+    class Estado(models.TextChoices):
+        APROBADO = 'aprobado', 'Aprobado'
+        RECHAZADO = 'rechazado', 'Rechazado'
+
+    usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='pagos')
+    monto = models.DecimalField(max_digits=6, decimal_places=2)
+    dias = models.PositiveIntegerField()
+    metodo = models.CharField(max_length=20)
+    marca = models.CharField(max_length=20, blank=True, default='')
+    ultimos4 = models.CharField(max_length=4, blank=True, default='')
+    estado = models.CharField(max_length=10, choices=Estado.choices)
+    referencia = models.CharField(max_length=40, unique=True)
+    simulado = models.BooleanField(default=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.referencia} · {self.get_estado_display()} · ${self.monto}"

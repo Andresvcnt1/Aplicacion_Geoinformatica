@@ -278,21 +278,45 @@ class ApiService {
     throw Exception('Error al cargar la suscripción (${response.statusCode})');
   }
 
-  /// Activa o extiende el VIP (pasarela de pago simulada en el backend).
-  Future<Suscripcion> activarVip() async {
+  /// Cobra la suscripción (pasarela simulada) y activa o extiende el VIP.
+  /// Solo se envían la marca y los últimos 4 dígitos: el número completo de la
+  /// tarjeta y el CVV nunca salen del dispositivo.
+  /// Lanza [PagoException] si el pago es rechazado o los datos son inválidos.
+  Future<Suscripcion> pagarSuscripcion({
+    required String marca,
+    required String ultimos4,
+  }) async {
     final response = await _conReintento(() async {
       final headers = await _authHeaders();
       return http.post(
         Uri.parse(ApiConstants.suscripcionUrl),
-        headers: headers,
+        headers: {...headers, 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'metodo': 'tarjeta',
+          'marca': marca,
+          'ultimos4': ultimos4,
+        }),
       );
     });
+
     if (response.statusCode == 200) {
       return Suscripcion.fromJson(
         jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
       );
     }
-    throw Exception('Error al activar la suscripción (${response.statusCode})');
+    if (response.statusCode == 400 || response.statusCode == 402) {
+      var mensaje = 'No se pudo procesar el pago.';
+      try {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data is Map && data['error'] != null) {
+          mensaje = data['error'].toString();
+        }
+      } catch (_) {
+        // Se queda con el mensaje genérico
+      }
+      throw PagoException(mensaje);
+    }
+    throw Exception('Error al procesar el pago (${response.statusCode})');
   }
 
   /// Cancela el VIP.
