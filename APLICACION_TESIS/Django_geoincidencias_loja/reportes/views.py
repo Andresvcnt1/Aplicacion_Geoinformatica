@@ -228,49 +228,48 @@ def _resumen_vip(user):
 
 
 class SuscripcionView(APIView):
-    """Suscripción VIP (modelo freemium). Pasarela de pago SIMULADA: no se cobra nada.
-    GET: estado y plan. POST: activa o extiende VIP_DIAS días. DELETE: cancela."""
+    """Suscripción VIP (modelo freemium). Pasarela de pago SIMULADA.
+    GET: estado y plan. POST: cobra y activa o extiende VIP_DIAS días. DELETE: cancela."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response(_resumen_vip(request.user))
 
-        def post(self, request):
-            user = request.user
-            try:
-                datos = validar_datos_pago(request.data)
-            except PagoInvalido as e:
-                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request):
+        user = request.user
+        try:
+            datos = validar_datos_pago(request.data)
+        except PagoInvalido as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-            with transaction.atomic():
-                pago = registrar_pago(user, datos, Decimal(VIP_PRECIO_USD), VIP_DIAS)
-                if pago.estado == Pago.Estado.APROBADO:
-                    base = user.vip_hasta if user.es_vip else timezone.now()
-                    user.vip_hasta = base + timedelta(days=VIP_DIAS)
-                    user.save(update_fields=['vip_hasta'])
+        with transaction.atomic():
+            pago = registrar_pago(user, datos, Decimal(VIP_PRECIO_USD), VIP_DIAS)
+            if pago.estado == Pago.Estado.APROBADO:
+                base = user.vip_hasta if user.es_vip else timezone.now()
+                user.vip_hasta = base + timedelta(days=VIP_DIAS)
+                user.save(update_fields=['vip_hasta'])
 
-            resumen_pago = {
-                'referencia': pago.referencia,
-                'estado': pago.estado,
-                'monto': str(pago.monto),
-                'marca': pago.marca,
-                'ultimos4': pago.ultimos4,
-            }
-            if pago.estado == Pago.Estado.RECHAZADO:
-                return Response(
-                    {'error': 'La tarjeta fue rechazada por el emisor (simulación).',
-                    'pago': resumen_pago},
-                    status=status.HTTP_402_PAYMENT_REQUIRED,
-                )
-            return Response({**_resumen_vip(user), 'pago': resumen_pago},
-                            status=status.HTTP_200_OK)
+        resumen_pago = {
+            'referencia': pago.referencia,
+            'estado': pago.estado,
+            'monto': str(pago.monto),
+            'marca': pago.marca,
+            'ultimos4': pago.ultimos4,
+        }
+        if pago.estado == Pago.Estado.RECHAZADO:
+            return Response(
+                {'error': 'La tarjeta fue rechazada por el emisor (simulación).',
+                 'pago': resumen_pago},
+                status=status.HTTP_402_PAYMENT_REQUIRED,
+            )
+        return Response({**_resumen_vip(user), 'pago': resumen_pago},
+                        status=status.HTTP_200_OK)
 
     def delete(self, request):
         user = request.user
         user.vip_hasta = None
         user.save(update_fields=['vip_hasta'])
         return Response(_resumen_vip(user))
-
 
 class AnunciosView(generics.ListAPIView):
     """Publicidad para el feed. Los suscriptores VIP no reciben anuncios."""
