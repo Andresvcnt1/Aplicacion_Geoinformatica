@@ -3,6 +3,7 @@
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { colorEstado, etiquetaEstado } from '@/lib/estados';
 import { useMemo, useState } from 'react';
 
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -22,12 +23,7 @@ interface Incidencia {
   ubicacion?: { type: string; coordinates: [number, number] } | string;
 }
 
-const getColor = (estado: string) => {
-  if (estado === 'Recibido')    return '#ef4444';
-  if (estado === 'En proceso')  return '#f97316';
-  if (estado === 'Solucionado') return '#22c55e';
-  return '#6b7280';
-};
+const getColor = (estado: string) => colorEstado(estado);
 
 const getCoordinates = (inc: Incidencia): [number, number] | null => {
   if (inc.ubicacion && typeof inc.ubicacion === 'object' && 'coordinates' in inc.ubicacion) {
@@ -77,10 +73,8 @@ function buildClusterIcon(photoUrl: string | undefined, extraCount: number, esta
 
 // ── Badge de estado (inline, porque Leaflet no lee Tailwind) ────────────────
 const estadoBadgeStyle = (estado: string): React.CSSProperties => {
-  if (estado === 'Recibido')    return { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 600 };
-  if (estado === 'En proceso')  return { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 600 };
-  if (estado === 'Solucionado') return { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 600 };
-  return { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 999, padding: '2px 8px', fontSize: 10 };
+  const c = colorEstado(estado);
+  return { background: `${c}1A`, color: c, border: `1px solid ${c}55`, borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 600 };
 };
 
 function ClusterMarkers({ points }: { points: ClusterPoint[] }) {

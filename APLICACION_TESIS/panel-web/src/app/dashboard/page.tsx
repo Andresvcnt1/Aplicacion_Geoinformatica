@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import api from '@/lib/api';
+import { ESTADOS, claseBadge, etiquetaEstado, type EstadoValor } from '@/lib/estados';
 import ReporteModal from '../components/ReporteModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import ReporteParroquias from '../components/ReporteParroquias';
@@ -16,6 +17,7 @@ interface Incidencia {
   categoria: string;
   descripcion: string;
   estado: string;
+  estado_display?: string;
   fecha_creacion?: string;
   usuario_nombre?: string;
   foto_url?: string;
@@ -36,11 +38,10 @@ const CATEGORIA_META: Record<string, { label: string; color: string }> = {
   OTRO: { label: 'Otro',      color: '#64748B' },
 };
 
-const ESTADO_BADGE: Record<string, string> = {
-  Recibido:     'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-900',
-  'En proceso': 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-900',
-  Solucionado:  'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900',
-};
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
 
 function useCountUp(target: number, duration = 900) {
   const [value, setValue] = useState(0);
@@ -139,8 +140,13 @@ export default function DashboardPage() {
   const [reporteSeleccionado, setReporteSeleccionado]   = useState<Incidencia | null>(null);
   const [loading, setLoading]                           = useState(true);
   const [error, setError]                               = useState('');
-  const [filtroEstado, setFiltroEstado]                 = useState<'Todos' | 'Recibido' | 'En proceso' | 'Solucionado'>('Todos');
+  const [filtroEstado, setFiltroEstado]                 = useState<'Todos' | EstadoValor>('Todos');
   const [adminUsername, setAdminUsername]               = useState('');
+  const hoy = new Date();
+  const [mesInforme, setMesInforme]                     = useState(hoy.getMonth() + 1);
+  const [anioInforme, setAnioInforme]                   = useState(hoy.getFullYear());
+  const [generandoInforme, setGenerandoInforme]         = useState(false);
+  const [errorInforme, setErrorInforme]                 = useState('');
   const router = useRouter();
 
   const reportesFiltrados =
@@ -183,7 +189,7 @@ export default function DashboardPage() {
       CATEGORIA_META[inc.categoria]?.label || inc.categoria,
       (inc.descripcion || 'Sin descripción').replace(/"/g, '""'),
       inc.usuario_nombre || 'Anónimo',
-      inc.estado,
+      etiquetaEstado(inc.estado),
       inc.fecha_creacion ? new Date(inc.fecha_creacion).toLocaleString('es-EC') : '',
     ]);
     const csv  = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
@@ -194,6 +200,7 @@ export default function DashboardPage() {
     URL.revokeObjectURL(url);
   };
 
+  // PDF rápido de la lista que estás viendo (generado en el navegador)
   const exportarPDF = async () => {
     const { default: jsPDF }     = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
@@ -201,19 +208,41 @@ export default function DashboardPage() {
     doc.setFontSize(14);
     doc.text('GeoIncidencias Loja — Reporte de incidencias', 14, 16);
     doc.setFontSize(9); doc.setTextColor(100);
-    doc.text(`Generado: ${new Date().toLocaleString('es-EC')} · Filtro: ${filtroEstado}`, 14, 22);
+    doc.text(`Generado: ${new Date().toLocaleString('es-EC')} · Filtro: ${filtroEstado === 'Todos' ? 'Todos' : etiquetaEstado(filtroEstado)}`, 14, 22);
     autoTable(doc, {
       startY: 28,
       head: [['ID','Categoría','Descripción','Reportado por','Estado','Fecha']],
       body: reportesFiltrados.map((inc) => [
         inc.id, CATEGORIA_META[inc.categoria]?.label || inc.categoria,
         inc.descripcion || 'Sin descripción', inc.usuario_nombre || 'Anónimo',
-        inc.estado, inc.fecha_creacion ? new Date(inc.fecha_creacion).toLocaleDateString('es-EC') : '—',
+        etiquetaEstado(inc.estado), inc.fecha_creacion ? new Date(inc.fecha_creacion).toLocaleDateString('es-EC') : '—',
       ]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [51, 65, 85] },
     });
     doc.save(`reportes_${new Date().toISOString().slice(0,10)}.pdf`);
+  };
+
+  // Informe mensual consolidado (RF014): lo genera el servidor; se envía el token en el header
+  const descargarInformeMensual = async () => {
+    setGenerandoInforme(true);
+    setErrorInforme('');
+    try {
+      const res = await api.get('/informe-mensual/', {
+        params: { anio: anioInforme, mes: mesInforme },
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `informe_incidencias_${anioInforme}_${String(mesInforme).padStart(2, '0')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setErrorInforme('No se pudo generar el informe mensual. Verifica el mes y el año e intenta de nuevo.');
+    } finally {
+      setGenerandoInforme(false);
+    }
   };
 
   const cerrarSesion = () => {
@@ -222,9 +251,17 @@ export default function DashboardPage() {
     router.replace('/login');
   };
 
-  const recibidas    = incidencias.filter((i) => i.estado.toLowerCase() === 'recibido').length;
-  const enProceso    = incidencias.filter((i) => i.estado.toLowerCase() === 'en proceso').length;
-  const solucionadas = incidencias.filter((i) => i.estado.toLowerCase() === 'solucionado').length;
+  const contar = (...valores: EstadoValor[]) =>
+    incidencias.filter((i) => valores.includes(i.estado as EstadoValor)).length;
+
+  const recibidas  = contar('recibido');
+  const enGestion  = contar('en_revision', 'en_proceso');
+  const resueltas  = contar('subsanado', 'cerrado');
+
+  const tabs: { key: 'Todos' | EstadoValor; label: string; count: number; dot: string }[] = [
+    { key: 'Todos', label: 'Todos', count: incidencias.length, dot: '#334155' },
+    ...ESTADOS.map((e) => ({ key: e.value, label: e.label, count: contar(e.value), dot: e.color })),
+  ];
 
   const categoriaData = Object.keys(CATEGORIA_META).map((key) => ({
     categoria: CATEGORIA_META[key].label,
@@ -266,10 +303,10 @@ export default function DashboardPage() {
             aria-label="Resumen de incidencias"
             className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 shadow-sm dark:border-slate-800 dark:bg-slate-800 sm:grid-cols-4"
           >
-            <KpiStat label="Total reportadas" value={incidencias.length} accent="#334155" tint="#F1F5F9"  darkTint="#1E293B" kind="total"       loading={loading} delay={0}   />
-            <KpiStat label="Recibidas"         value={recibidas}          accent="#ef4444" tint="#FEF2F2"  darkTint="#450A0A" kind="recibido"   loading={loading} delay={60}  />
-            <KpiStat label="En proceso"        value={enProceso}          accent="#f97316" tint="#FFF7ED"  darkTint="#431407" kind="proceso"    loading={loading} delay={120} />
-            <KpiStat label="Solucionadas"      value={solucionadas}       accent="#22c55e" tint="#F0FDF4"  darkTint="#052E16" kind="solucionado" loading={loading} delay={180} />
+            <KpiStat label="Total reportadas"            value={incidencias.length} accent="#334155" tint="#F1F5F9"  darkTint="#1E293B" kind="total"       loading={loading} delay={0}   />
+            <KpiStat label="Recibidas"                   value={recibidas}          accent="#ef4444" tint="#FEF2F2"  darkTint="#450A0A" kind="recibido"   loading={loading} delay={60}  />
+            <KpiStat label="En gestión (revisión + proceso)" value={enGestion}      accent="#f97316" tint="#FFF7ED"  darkTint="#431407" kind="proceso"    loading={loading} delay={120} />
+            <KpiStat label="Resueltas (subsanado + cerrado)" value={resueltas}      accent="#22c55e" tint="#F0FDF4"  darkTint="#052E16" kind="solucionado" loading={loading} delay={180} />
           </section>
 
           {error && (
@@ -283,7 +320,6 @@ export default function DashboardPage() {
 
             {/* Mapa — 2/3 */}
             <div className="lg:col-span-2">
-              {/* ✅ FIX: botón Actualizar dentro del header del mapa, NO fuera */}
               <div className="mb-3 flex items-end justify-between gap-4">
                 <div>
                   <h2 className="font-display text-lg font-semibold">Mapa de incidencias</h2>
@@ -299,10 +335,13 @@ export default function DashboardPage() {
               </div>
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <MapaIncidencias data={incidencias} />
-                <div className="flex flex-wrap items-center gap-5 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" />Recibido</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-orange-500" />En proceso</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" />Solucionado</span>
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                  {ESTADOS.map((e) => (
+                    <span key={e.value} className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: e.color }} />
+                      {e.label}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -352,21 +391,58 @@ export default function DashboardPage() {
                   CSV
                 </button>
                 <button type="button" onClick={exportarPDF} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                  PDF
+                  PDF (lista actual)
                 </button>
               </div>
             </div>
 
+            {/* Informe mensual consolidado (PDF del servidor) */}
+            <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mr-auto">
+                <p className="text-sm font-medium">Informe mensual consolidado</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  PDF con las incidencias del mes agrupadas por estado
+                </p>
+              </div>
+              <label className="text-xs text-slate-500 dark:text-slate-400">
+                Mes
+                <select
+                  value={mesInforme}
+                  onChange={(e) => setMesInforme(Number(e.target.value))}
+                  className="mt-1 block rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  {MESES.map((m, i) => (
+                    <option key={m} value={i + 1}>{m}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs text-slate-500 dark:text-slate-400">
+                Año
+                <input
+                  type="number"
+                  min={2024}
+                  max={2100}
+                  value={anioInforme}
+                  onChange={(e) => setAnioInforme(Number(e.target.value))}
+                  className="mt-1 block w-24 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={descargarInformeMensual}
+                disabled={generandoInforme}
+                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+              >
+                {generandoInforme ? 'Generando...' : 'Descargar PDF'}
+              </button>
+              {errorInforme && (
+                <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{errorInforme}</p>
+              )}
+            </div>
+
             {/* Tabs filtro */}
             <div className="mb-4 flex flex-wrap gap-2">
-              {(
-                [
-                  { key: 'Todos',       label: 'Todos',       count: incidencias.length, dot: '#334155' },
-                  { key: 'Recibido',    label: 'Recibido',    count: recibidas,           dot: '#ef4444' },
-                  { key: 'En proceso',  label: 'En proceso',  count: enProceso,           dot: '#f97316' },
-                  { key: 'Solucionado', label: 'Solucionado', count: solucionadas,        dot: '#22c55e' },
-                ] as const
-              ).map((tab) => (
+              {tabs.map((tab) => (
                 <button
                   key={tab.key}
                   type="button"
@@ -417,8 +493,8 @@ export default function DashboardPage() {
                           <p>{inc.usuario_nombre || 'Anónimo'}</p>
                           <p>{inc.fecha_creacion ? new Date(inc.fecha_creacion).toLocaleDateString('es-EC') : '—'}</p>
                         </div>
-                        <span className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${ESTADO_BADGE[inc.estado] || 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'}`}>
-                          {inc.estado}
+                        <span className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${claseBadge(inc.estado)}`}>
+                          {etiquetaEstado(inc.estado)}
                         </span>
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-300 dark:text-slate-600">
                           <path d="m9 18 6-6-6-6" />
