@@ -4,9 +4,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/api_service.dart';
 import '../../core/aparecer.dart';
-import '../../core/app_header.dart'; // <-- NUEVO
+import '../../core/app_header.dart';
 import '../../core/theme.dart';
 import '../auth/biometric_service.dart';
+import '../suscripcion/suscripcion_screen.dart';
 import 'services/geolocator_service.dart';
 import 'widgets/categoria_dropdown.dart';
 import 'widgets/foto_picker.dart';
@@ -34,6 +35,10 @@ class _ReporteScreenState extends State<ReporteScreen> {
   bool _cargandoGps = false;
   bool _cargandoFoto = false;
 
+  // Modelo freemium
+  bool _esVip = false;
+  bool _anonimo = false;
+
   final _geolocatorService = GeolocatorService();
   final _apiService = ApiService();
   final _biometricService = BiometricService();
@@ -53,6 +58,12 @@ class _ReporteScreenState extends State<ReporteScreen> {
     CategoriaOpcion('LUZ', 'Luminaria defectuosa', Icons.lightbulb_outline),
     CategoriaOpcion('OTRO', 'Otros daños', Icons.report_problem_outlined),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarEsVip();
+  }
 
   double _getResponsiveHeight(BuildContext context, double percentage) {
     return MediaQuery.of(context).size.height * percentage;
@@ -105,6 +116,101 @@ class _ReporteScreenState extends State<ReporteScreen> {
     }
   }
 
+  // ───────────────────────── Modelo freemium ─────────────────────────
+
+  Future<void> _cargarEsVip() async {
+    try {
+      final perfil = await _apiService.obtenerPerfil();
+      if (!mounted) return;
+      setState(() {
+        _esVip = perfil['es_vip'] == true;
+        if (!_esVip) _anonimo = false;
+      });
+    } catch (_) {
+      // Si falla, se asume plan gratuito
+    }
+  }
+
+  Future<void> _abrirSuscripcion() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SuscripcionScreen()),
+    );
+    if (!mounted) return;
+    await _cargarEsVip();
+  }
+
+  void _alternarAnonimo(bool valor) {
+    if (!_esVip) {
+      _abrirSuscripcion();
+      return;
+    }
+    setState(() => _anonimo = valor);
+  }
+
+  Widget _tarjetaAnonimo() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        onTap: _estaEnviando ? null : () => _alternarAnonimo(!_anonimo),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppTheme.primario.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(
+            Icons.visibility_off_outlined,
+            color: AppTheme.primario,
+            size: 20,
+          ),
+        ),
+        title: Row(
+          children: [
+            const Flexible(
+              child: Text(
+                'Reporte anónimo',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'VIP',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          _esVip
+              ? 'Tu nombre y foto no se mostrarán al público. Tu reporte se atiende con prioridad.'
+              : 'Función exclusiva para suscriptores VIP. Toca para ver el plan.',
+          style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+        ),
+        trailing: Switch(
+          value: _anonimo,
+          onChanged: _estaEnviando ? null : _alternarAnonimo,
+        ),
+      ),
+    );
+  }
+
+  // ───────────────────────── Envío del reporte ─────────────────────────
+
   Future<void> _enviarReporte() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -131,6 +237,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
 
     final bool autenticado = await _biometricService.autenticarUsuario();
     if (!autenticado) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('⚠️ Identidad no verificada.')),
       );
@@ -146,6 +253,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
         latitud: _posicionActual!.latitude,
         longitud: _posicionActual!.longitude,
         foto: _imagenSeleccionada,
+        anonimo: _anonimo,
       );
 
       if (!mounted) return;
@@ -174,12 +282,17 @@ class _ReporteScreenState extends State<ReporteScreen> {
           _mensajeErrorGps = null;
           _categoriaSeleccionada = 'VIAL';
           _fotoObligatoriaResaltada = false;
+          _anonimo = false;
         });
       } else {
         String mensajeError = 'Error del servidor (${response.statusCode})';
         if (response.statusCode == 400) {
           mensajeError =
               '⚠️ No se pudo enviar. Verifica que:\n1. La foto esté adjunta\n2. Estés dentro del área municipal';
+        } else if (response.statusCode == 403) {
+          mensajeError =
+              '⭐ El reporte anónimo es exclusivo para suscriptores VIP.';
+          _cargarEsVip();
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -215,7 +328,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
       backgroundColor: AppTheme.fondo,
       resizeToAvoidBottomInset: true,
       appBar: const AppHeader(
-        // <-- ÚNICO CAMBIO: barra con subtítulo
         titulo: 'Reportar incidencia',
         subtitulo: 'Reporta en menos de un minuto',
       ),
@@ -292,10 +404,13 @@ class _ReporteScreenState extends State<ReporteScreen> {
                   onTap: _obtenerUbicacionGPS,
                 ),
               ),
+              const SizedBox(height: 22),
+
+              Aparecer(orden: 4, child: _tarjetaAnonimo()),
               const SizedBox(height: 28),
 
               Aparecer(
-                orden: 4,
+                orden: 5,
                 child: SizedBox(
                   height: _getResponsiveHeight(context, 0.06),
                   child: ElevatedButton(

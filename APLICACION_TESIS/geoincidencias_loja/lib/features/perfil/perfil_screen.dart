@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_service.dart';
 import '../../core/aparecer.dart';
@@ -8,6 +9,7 @@ import '../../core/theme.dart';
 import '../../models/incidencia.dart';
 import '../auth/login_screen.dart';
 import '../historial/historial_screen.dart';
+import '../suscripcion/suscripcion_screen.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
@@ -164,6 +166,20 @@ class _PerfilScreenState extends State<PerfilScreen> {
     return '${meses[fecha.month - 1]} de ${fecha.year}';
   }
 
+  String _fechaCorta(String? iso) {
+    final f = DateTime.tryParse(iso ?? '')?.toLocal();
+    return f == null ? '-' : DateFormat('dd/MM/yyyy').format(f);
+  }
+
+  Future<void> _abrirSuscripcion() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SuscripcionScreen()),
+    );
+    if (!mounted) return;
+    await _cargarPerfil();
+  }
+
   @override
   Widget build(BuildContext context) {
     final firstName = _perfil?['first_name'] ?? '';
@@ -217,6 +233,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
                         ),
                         const SizedBox(height: 12),
                         _bloqueKpi(),
+                        const SizedBox(height: 26),
+                        Aparecer(orden: 7, child: _tarjetaVip()),
                         const SizedBox(height: 26),
                         Aparecer(orden: 7, child: _tituloSeccion('Mi cuenta')),
                         const SizedBox(height: 12),
@@ -367,6 +385,31 @@ class _PerfilScreenState extends State<PerfilScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
           ),
+          if (_perfil?['es_vip'] == true) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.workspace_premium, size: 16, color: Colors.white),
+                  SizedBox(width: 6),
+                  Text(
+                    'Suscriptor VIP',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -499,6 +542,64 @@ class _PerfilScreenState extends State<PerfilScreen> {
               backgroundColor: Colors.grey.shade200,
               color: colorOk,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tarjetaVip() {
+    final esVip = _perfil?['es_vip'] == true;
+    final hasta = _fechaCorta(_perfil?['vip_hasta']?.toString());
+    final color = esVip ? const Color(0xFFF59E0B) : AppTheme.primario;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: esVip ? color.withValues(alpha: 0.5) : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              esVip ? Icons.workspace_premium : Icons.star_border_rounded,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  esVip ? 'Suscripción VIP activa' : 'Plan gratuito',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  esVip
+                      ? 'Vigente hasta el $hasta'
+                      : 'Reportes anónimos, sin anuncios y atención prioritaria.',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _abrirSuscripcion,
+            child: Text(esVip ? 'Administrar' : 'Hazte VIP'),
           ),
         ],
       ),

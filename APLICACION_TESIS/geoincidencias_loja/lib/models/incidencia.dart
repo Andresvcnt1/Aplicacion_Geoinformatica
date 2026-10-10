@@ -132,6 +132,8 @@ class Incidencia {
   final dynamic ubicacion; // se deja dynamic hasta ver cómo la usa tu UI
   final String? usuarioNombre;
   final String? usuarioFoto;
+  final bool anonimo;
+  final bool prioritaria;
 
   const Incidencia({
     required this.id,
@@ -144,6 +146,8 @@ class Incidencia {
     this.ubicacion,
     this.usuarioNombre,
     this.usuarioFoto,
+    this.anonimo = false,
+    this.prioritaria = false,
   });
 
   factory Incidencia.fromJson(Map<String, dynamic> json) {
@@ -160,6 +164,8 @@ class Incidencia {
       ubicacion: json['ubicacion'],
       usuarioNombre: json['usuario_nombre'] as String?,
       usuarioFoto: json['usuario_foto'] as String?,
+      anonimo: json['anonimo'] == true,
+      prioritaria: json['prioritaria'] == true,
     );
   }
 
