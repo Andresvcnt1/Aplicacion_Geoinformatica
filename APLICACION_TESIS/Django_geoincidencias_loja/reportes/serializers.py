@@ -3,7 +3,7 @@ from django.contrib.gis.geos import Point
 from django.db.models import Count
 from rest_framework import serializers
 
-from .models import Usuario, Incidencia, GeocercaMunicipal, HistorialEstado
+from .models import Anuncio, Usuario, Incidencia, GeocercaMunicipal, HistorialEstado
 
 
 class IncidenciaSerializer(serializers.ModelSerializer):
@@ -18,7 +18,7 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'categoria', 'descripcion', 'foto', 'fecha_creacion',
             'estado', 'estado_display', 'latitud', 'longitud', 'ubicacion',
-            'usuario_nombre', 'usuario_foto',
+            'usuario_nombre', 'usuario_foto', 'anonimo', 'prioritaria',
         ]
         extra_kwargs = {
             'ubicacion': {'required': False, 'allow_null': True},
@@ -26,11 +26,23 @@ class IncidenciaSerializer(serializers.ModelSerializer):
             'fecha_creacion': {'read_only': True},
             # El ciudadano NO puede fijar el estado: solo cambia vía cambiar_estado()
             'estado': {'read_only': True},
+            # Se calcula en el servidor según la suscripción del usuario
+            'prioritaria': {'read_only': True},
         }
+
+    def _autor_visible(self, obj):
+        """Un reporte anónimo solo lo identifican el personal técnico y su propio autor."""
+        if not obj.anonimo:
+            return True
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is None or not user.is_authenticated:
+            return False
+        return user.is_staff or obj.usuario_id == user.id
 
     # Mostrar Nombre y Apellido en las publicaciones
     def get_usuario_nombre(self, obj):
-        if obj.usuario:
+        if obj.usuario and self._autor_visible(obj):
             nombre = obj.usuario.first_name or ''
             apellido = obj.usuario.last_name or ''
             nombre_completo = f"{nombre} {apellido}".strip()
@@ -39,7 +51,7 @@ class IncidenciaSerializer(serializers.ModelSerializer):
 
     def get_usuario_foto(self, obj):
         request = self.context.get('request')
-        if obj.usuario and obj.usuario.foto_perfil and request:
+        if obj.usuario and obj.usuario.foto_perfil and request and self._autor_visible(obj):
             return request.build_absolute_uri(obj.usuario.foto_perfil.url)
         return None
 
@@ -129,13 +141,16 @@ class PerfilSerializer(serializers.ModelSerializer):
     foto_perfil_url = serializers.SerializerMethodField()
     total_reportes = serializers.SerializerMethodField()
     reportes_por_estado = serializers.SerializerMethodField()
+    es_vip = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Usuario
         fields = [
             'cedula', 'first_name', 'last_name', 'email', 'metodo_verificacion',
             'foto_perfil_url', 'total_reportes', 'reportes_por_estado', 'fecha_registro',
+            'es_vip', 'vip_hasta',
         ]
+        read_only_fields = ['vip_hasta']
 
     def get_foto_perfil_url(self, obj):
         request = self.context.get('request')
@@ -155,3 +170,9 @@ class PerfilSerializer(serializers.ModelSerializer):
             etiqueta: conteo.get(valor, 0)
             for valor, etiqueta in Incidencia.Estado.choices
         }
+
+
+class AnuncioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Anuncio
+        fields = ['id', 'anunciante', 'titulo', 'texto', 'imagen', 'enlace']

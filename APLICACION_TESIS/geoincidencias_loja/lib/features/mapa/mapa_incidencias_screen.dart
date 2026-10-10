@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../models/incidencia.dart';
@@ -71,6 +72,19 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
     }
   }
 
+  /// El backend manda "2026-10-10 03:46" en UTC y sin zona: lo leemos como
+  /// UTC y lo mostramos en la hora local del celular.
+  String _fechaLocal(dynamic raw) {
+    if (raw == null) return 'Fecha desconocida';
+    final txt = raw.toString().trim();
+    final iso = txt.replaceFirst(' ', 'T');
+    final tieneZona =
+        iso.endsWith('Z') || RegExp(r'[+-]\d{2}:?\d{2}$').hasMatch(iso);
+    final dt = DateTime.tryParse(tieneZona ? iso : '${iso}Z');
+    if (dt == null) return txt;
+    return DateFormat('dd/MM/yyyy HH:mm').format(dt.toLocal());
+  }
+
   Future<void> _cargarIncidencias() async {
     setState(() {
       _isLoading = true;
@@ -131,6 +145,9 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
     final String categoria = props['categoria'] ?? 'Sin categoría';
     final Color colorEstado = _getColorPorEstado(estadoRaw);
     final IconData iconoCat = _iconoCategoria(props['categoria']);
+    final String fecha = _fechaLocal(
+      props['fecha_iso'] ?? props['fecha_reporte'],
+    );
 
     showModalBottomSheet(
       context: context,
@@ -220,13 +237,13 @@ class _MapaIncidenciasScreenState extends State<MapaIncidenciasScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Fecha
+              // Fecha (en hora local)
               Row(
                 children: [
                   Icon(Icons.schedule, size: 16, color: Colors.grey.shade500),
                   const SizedBox(width: 6),
                   Text(
-                    props['fecha_reporte'] ?? 'Fecha desconocida',
+                    fecha,
                     style: TextStyle(
                       color: Colors.grey.shade600,
                       fontSize: 13.5,

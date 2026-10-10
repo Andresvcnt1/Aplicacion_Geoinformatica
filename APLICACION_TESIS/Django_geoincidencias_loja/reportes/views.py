@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate
@@ -8,19 +9,26 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import generics, parsers, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .informe_mensual import generar_informe_mensual
-from .models import GeocercaMunicipal, HistorialEstado, Incidencia, Usuario
+from .models import Anuncio, GeocercaMunicipal, HistorialEstado, Incidencia, Usuario
 from .serializers import (
+    AnuncioSerializer,
     HistorialEstadoSerializer,
     IncidenciaSerializer,
     PerfilSerializer,
     RegistroUsuarioSerializer,
 )
+
+# Plan único del modelo freemium (pasarela de pago simulada en esta versión).
+# Pon aquí el precio que dice tu documento de tesis.
+VIP_DIAS = 30
+VIP_PRECIO_USD = '2.99'
 
 
 @ensure_csrf_cookie
@@ -37,9 +45,10 @@ class IncidenciasListCreateView(generics.ListCreateAPIView):
     """
     Controlador API para los reportes de incidencias ciudadanas.
     Lectura pública (feed de publicaciones), creación requiere login.
+    - ?mios=1 devuelve solo los reportes del usuario autenticado.
+    - Para el personal técnico, los reportes prioritarios (VIP) salen primero.
     El primer registro del historial lo crea Incidencia.save().
     """
-    queryset = Incidencia.objects.all().order_by('-fecha_creacion')
     serializer_class = IncidenciaSerializer
     parser_classes = (parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser)
 
@@ -48,8 +57,26 @@ class IncidenciasListCreateView(generics.ListCreateAPIView):
             return [IsAuthenticated()]
         return [AllowAny()]
 
+    def get_queryset(self):
+        qs = Incidencia.objects.select_related('usuario')
+        user = self.request.user
+        solo_mios = self.request.query_params.get('mios') == '1'
+
+        if solo_mios:
+            if not user.is_authenticated:
+                return qs.none()
+            return qs.filter(usuario=user).order_by('-fecha_creacion')
+
+        if user.is_authenticated and user.is_staff:
+            return qs.order_by('-prioritaria', '-fecha_creacion')
+        return qs.order_by('-fecha_creacion')
+
     def perform_create(self, serializer):
-        serializer.save(usuario=self.request.user)
+        user = self.request.user
+        anonimo = bool(serializer.validated_data.get('anonimo', False))
+        if anonimo and not user.es_vip:
+            raise PermissionDenied('El reporte anónimo es exclusivo para suscriptores VIP.')
+        serializer.save(usuario=user, anonimo=anonimo, prioritaria=user.es_vip)
 
 
 def geocercas_geojson(request):
@@ -75,9 +102,11 @@ def incidencias_geojson(request):
     """
     Endpoint GeoJSON para mapas interactivos.
     Cumple con RF006: Visualización de incidencias en mapa interactivo.
+    fecha_reporte: texto para el panel web; fecha_iso: fecha con zona horaria para la app.
     """
     features = []
     for inc in Incidencia.objects.all():
+        local = timezone.localtime(inc.fecha_creacion)
         features.append({
             "type": "Feature",
             "geometry": {
@@ -89,7 +118,8 @@ def incidencias_geojson(request):
                 "categoria": inc.categoria,
                 "descripcion": inc.descripcion,
                 "foto_url": request.build_absolute_uri(inc.foto.url) if inc.foto else None,
-                "fecha_reporte": timezone.localtime(inc.fecha_creacion).strftime('%Y-%m-%d %H:%M'),
+                "fecha_reporte": local.strftime('%Y-%m-%d %H:%M'),
+                "fecha_iso": local.isoformat(),
                 "estado": inc.estado if hasattr(inc, 'estado') else None
             }
         })
@@ -174,6 +204,59 @@ class InformeMensualPDFView(APIView):
             pdf, as_attachment=True, content_type='application/pdf',
             filename=f'informe_incidencias_{anio}_{mes:02d}.pdf',
         )
+
+
+def _resumen_vip(user):
+    return {
+        'es_vip': user.es_vip,
+        'vip_hasta': timezone.localtime(user.vip_hasta).isoformat() if user.vip_hasta else None,
+        'plan': {
+            'nombre': 'VIP mensual',
+            'dias': VIP_DIAS,
+            'precio_usd': VIP_PRECIO_USD,
+            'beneficios': [
+                'Reportes anónimos ante el público',
+                'Sin anuncios',
+                'Atención prioritaria de tus reportes',
+            ],
+        },
+        'simulado': True,
+    }
+
+
+class SuscripcionView(APIView):
+    """Suscripción VIP (modelo freemium). Pasarela de pago SIMULADA: no se cobra nada.
+    GET: estado y plan. POST: activa o extiende VIP_DIAS días. DELETE: cancela."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(_resumen_vip(request.user))
+
+    def post(self, request):
+        user = request.user
+        base = user.vip_hasta if user.es_vip else timezone.now()
+        user.vip_hasta = base + timedelta(days=VIP_DIAS)
+        user.save(update_fields=['vip_hasta'])
+        return Response(_resumen_vip(user), status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        user = request.user
+        user.vip_hasta = None
+        user.save(update_fields=['vip_hasta'])
+        return Response(_resumen_vip(user))
+
+
+class AnunciosView(generics.ListAPIView):
+    """Publicidad para el feed. Los suscriptores VIP no reciben anuncios."""
+    permission_classes = [AllowAny]
+    serializer_class = AnuncioSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and user.es_vip:
+            return Anuncio.objects.none()
+        return Anuncio.objects.filter(activo=True)
 
 
 class RegistroView(generics.CreateAPIView):

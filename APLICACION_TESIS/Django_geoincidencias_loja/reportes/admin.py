@@ -2,25 +2,35 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.gis import admin as gis_admin
 from django.contrib.gis.forms.widgets import OSMWidget
-from .models import Incidencia, Usuario, GeocercaMunicipal
+from .models import Anuncio, GeocercaMunicipal, Incidencia, Usuario
 
 # ============================================
 # 1. ADMINISTRACIÓN DE USUARIOS (RF004)
 # ============================================
 @admin.register(Usuario)
 class UsuarioAdmin(UserAdmin):
-    list_display = ('username', 'cedula', 'email', 'metodo_verificacion', 'is_staff', 'date_joined')
+    list_display = (
+        'username', 'cedula', 'email', 'metodo_verificacion',
+        'es_vip_display', 'is_staff', 'date_joined',
+    )
     list_filter = ('metodo_verificacion', 'is_staff', 'is_active')
     search_fields = ('username', 'cedula', 'email')
     ordering = ('-date_joined',)
-    
+
+    @admin.display(boolean=True, description='VIP')
+    def es_vip_display(self, obj):
+        return obj.es_vip
+
     # Agregar campos personalizados a la vista de edición
     fieldsets = UserAdmin.fieldsets + (
         ('Información Ciudadana', {
             'fields': ('cedula', 'metodo_verificacion'),
         }),
+        ('Suscripción', {
+            'fields': ('vip_hasta',),
+        }),
     )
-    
+
     # Agregar campos al formulario de "Crear nuevo usuario"
     add_fieldsets = UserAdmin.add_fieldsets + (
         ('Información Ciudadana', {
@@ -41,9 +51,15 @@ class CartoDBWidget(OSMWidget):
 
 @admin.register(Incidencia)
 class IncidenciaAdmin(gis_admin.GISModelAdmin):
-    list_display = ('categoria', 'descripcion', 'estado', 'fecha_creacion', 'ubicacion')
-    list_filter = ('categoria', 'estado', 'fecha_creacion')
+    list_display = (
+        'categoria', 'descripcion', 'estado', 'prioritaria', 'anonimo',
+        'fecha_creacion', 'ubicacion',
+    )
+    list_filter = ('categoria', 'estado', 'prioritaria', 'anonimo', 'fecha_creacion')
     search_fields = ('descripcion',)
+    # El estado solo cambia con Incidencia.cambiar_estado() (panel web), para que
+    # cada cambio quede en HistorialEstado. Editarlo aquí rompería la trazabilidad.
+    readonly_fields = ('estado',)
     gis_widget = CartoDBWidget
     gis_widget_kwargs = {
         'attrs': {
@@ -70,3 +86,13 @@ class GeocercaMunicipalAdmin(gis_admin.GISModelAdmin):
             'default_zoom': 13,
         }
     }
+
+
+# ============================================
+# 4. PUBLICIDAD (modelo freemium)
+# ============================================
+@admin.register(Anuncio)
+class AnuncioAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'anunciante', 'activo', 'orden')
+    list_editable = ('activo', 'orden')
+    search_fields = ('titulo', 'anunciante')
