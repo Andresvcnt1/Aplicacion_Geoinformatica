@@ -8,6 +8,7 @@ import '../../models/incidencia.dart';
 import '../historial/incidencia_detalle_screen.dart';
 import '../suscripcion/suscripcion_screen.dart';
 import 'widgets/anuncio_card.dart';
+import 'widgets/admob_banner.dart';
 
 class PublicacionesScreen extends StatefulWidget {
   const PublicacionesScreen({super.key});
@@ -164,7 +165,7 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
             }
 
             final hayAnuncios = _anuncios.isNotEmpty;
-            // 1 anuncio cada 4 publicaciones
+            // 1 espacio publicitario cada 4 publicaciones
             final total =
                 publicaciones.length +
                 (hayAnuncios ? publicaciones.length ~/ 4 : 0);
@@ -174,10 +175,15 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
               itemCount: total,
               itemBuilder: (context, index) {
                 if (hayAnuncios && index % 5 == 4) {
-                  return AnuncioCard(
-                    anuncio: _anuncios[(index ~/ 5) % _anuncios.length],
-                    onQuitarAnuncios: _abrirSuscripcion,
-                  );
+                  final espacio = index ~/ 5;
+                  // Pares: anuncio propio. Impares: banner de Google AdMob.
+                  if (espacio.isEven) {
+                    return AnuncioCard(
+                      anuncio: _anuncios[(espacio ~/ 2) % _anuncios.length],
+                      onQuitarAnuncios: _abrirSuscripcion,
+                    );
+                  }
+                  return AdMobBanner(onQuitarAnuncios: _abrirSuscripcion);
                 }
                 final postIndex = hayAnuncios
                     ? (index ~/ 5) * 4 + index % 5
