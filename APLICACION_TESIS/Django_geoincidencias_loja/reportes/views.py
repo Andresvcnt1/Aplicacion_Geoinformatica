@@ -31,7 +31,7 @@ from .serializers import (
 # Plan único del modelo freemium (pasarela de pago simulada en esta versión).
 # Pon aquí el precio que dice tu documento de tesis.
 VIP_DIAS = 30
-VIP_PRECIO_USD = '2.99'
+VIP_PRECIO_USD = '2.00'
 
 
 @ensure_csrf_cookie
