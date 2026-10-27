@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'constants.dart';
-import '../models/freemium.dart';
 import '../models/incidencia.dart';
 
 class ApiService {
@@ -52,22 +51,7 @@ class ApiService {
     }
   }
 
-  /// Ejecuta una petición y, si responde 401, renueva el token y la repite una vez.
-  Future<http.Response> _conReintento(
-    Future<http.Response> Function() peticion,
-  ) async {
-    var response = await peticion();
-    if (response.statusCode == 401) {
-      final renovado = await _refrescarToken();
-      if (renovado) {
-        response = await peticion();
-      }
-    }
-    return response;
-  }
-
   /// Envía un nuevo reporte de incidencia (requiere sesión activa).
-  /// [anonimo] solo lo acepta el backend para suscriptores VIP (si no, responde 403).
   Future<http.Response> enviarReporte({
     required String categoria,
     required String descripcion,
@@ -232,109 +216,5 @@ class ApiService {
           as Map<String, dynamic>;
     }
     throw Exception('Error al actualizar foto (${response.statusCode})');
-  }
-
-  // ───────────────────────── Modelo freemium ─────────────────────────
-
-  /// Publicidad del feed. Los suscriptores VIP reciben lista vacía.
-  /// Un access_token vencido haría que el backend responda 401 incluso en este
-  /// endpoint público: se renueva, y si no se puede, se pide como invitado.
-  Future<List<Anuncio>> obtenerAnuncios() async {
-    Future<http.Response> conSesion() async {
-      final headers = await _authHeaders();
-      return http.get(Uri.parse(ApiConstants.anunciosUrl), headers: headers);
-    }
-
-    var response = await conSesion();
-
-    if (response.statusCode == 401) {
-      final renovado = await _refrescarToken();
-      response = renovado
-          ? await conSesion()
-          : await http.get(Uri.parse(ApiConstants.anunciosUrl));
-    }
-
-    if (response.statusCode == 200) {
-      final lista =
-          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
-      return lista
-          .map((e) => Anuncio.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-    throw Exception('Error al cargar anuncios (${response.statusCode})');
-  }
-
-  /// Estado de la suscripción y datos del plan.
-  Future<Suscripcion> obtenerSuscripcion() async {
-    final response = await _conReintento(() async {
-      final headers = await _authHeaders();
-      return http.get(Uri.parse(ApiConstants.suscripcionUrl), headers: headers);
-    });
-    if (response.statusCode == 200) {
-      return Suscripcion.fromJson(
-        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
-      );
-    }
-    throw Exception('Error al cargar la suscripción (${response.statusCode})');
-  }
-
-  /// Cobra la suscripción (pasarela simulada) y activa o extiende el VIP.
-  /// Solo se envían la marca y los últimos 4 dígitos: el número completo de la
-  /// tarjeta y el CVV nunca salen del dispositivo.
-  /// Lanza [PagoException] si el pago es rechazado o los datos son inválidos.
-  Future<Suscripcion> pagarSuscripcion({
-    required String marca,
-    required String ultimos4,
-  }) async {
-    final response = await _conReintento(() async {
-      final headers = await _authHeaders();
-      return http.post(
-        Uri.parse(ApiConstants.suscripcionUrl),
-        headers: {...headers, 'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'metodo': 'tarjeta',
-          'marca': marca,
-          'ultimos4': ultimos4,
-        }),
-      );
-    });
-
-    if (response.statusCode == 200) {
-      return Suscripcion.fromJson(
-        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
-      );
-    }
-    if (response.statusCode == 400 || response.statusCode == 402) {
-      var mensaje = 'No se pudo procesar el pago.';
-      try {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        if (data is Map && data['error'] != null) {
-          mensaje = data['error'].toString();
-        }
-      } catch (_) {
-        // Se queda con el mensaje genérico
-      }
-      throw PagoException(mensaje);
-    }
-    throw Exception('Error al procesar el pago (${response.statusCode})');
-  }
-
-  /// Cancela el VIP.
-  Future<Suscripcion> cancelarVip() async {
-    final response = await _conReintento(() async {
-      final headers = await _authHeaders();
-      return http.delete(
-        Uri.parse(ApiConstants.suscripcionUrl),
-        headers: headers,
-      );
-    });
-    if (response.statusCode == 200) {
-      return Suscripcion.fromJson(
-        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
-      );
-    }
-    throw Exception(
-      'Error al cancelar la suscripción (${response.statusCode})',
-    );
   }
 }

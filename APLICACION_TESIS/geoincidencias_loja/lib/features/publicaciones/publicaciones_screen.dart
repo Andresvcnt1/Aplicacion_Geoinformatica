@@ -3,12 +3,8 @@ import 'package:intl/intl.dart';
 import '../../core/api_service.dart';
 import '../../core/aparecer.dart';
 import '../../core/theme.dart';
-import '../../models/freemium.dart';
 import '../../models/incidencia.dart';
 import '../historial/incidencia_detalle_screen.dart';
-import '../suscripcion/suscripcion_screen.dart';
-import 'widgets/anuncio_card.dart';
-import 'widgets/admob_banner.dart';
 
 class PublicacionesScreen extends StatefulWidget {
   const PublicacionesScreen({super.key});
@@ -51,39 +47,16 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
   final ApiService _apiService = ApiService();
   late Future<List<dynamic>> _futurePublicaciones;
 
-  List<Anuncio> _anuncios = [];
-
-  Future<void> _cargarAnuncios() async {
-    try {
-      final lista = await _apiService.obtenerAnuncios();
-      if (!mounted) return;
-      setState(() => _anuncios = lista);
-    } catch (_) {
-      // Si fallan los anuncios, el feed sigue funcionando sin ellos
-    }
-  }
-
-  Future<void> _abrirSuscripcion() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SuscripcionScreen()),
-    );
-    if (!mounted) return;
-    _cargarAnuncios(); // si ahora es VIP, la lista llega vacía
-  }
-
   @override
   void initState() {
     super.initState();
     _futurePublicaciones = _apiService.obtenerPublicaciones();
-    _cargarAnuncios();
   }
 
   Future<void> _recargar() async {
     setState(() {
       _futurePublicaciones = _apiService.obtenerPublicaciones();
     });
-    _cargarAnuncios();
     await _futurePublicaciones;
   }
 
@@ -164,31 +137,11 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
               );
             }
 
-            final hayAnuncios = _anuncios.isNotEmpty;
-            // 1 espacio publicitario cada 4 publicaciones
-            final total =
-                publicaciones.length +
-                (hayAnuncios ? publicaciones.length ~/ 4 : 0);
-
             return ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: total,
+              itemCount: publicaciones.length,
               itemBuilder: (context, index) {
-                if (hayAnuncios && index % 5 == 4) {
-                  final espacio = index ~/ 5;
-                  // Pares: anuncio propio. Impares: banner de Google AdMob.
-                  if (espacio.isEven) {
-                    return AnuncioCard(
-                      anuncio: _anuncios[(espacio ~/ 2) % _anuncios.length],
-                      onQuitarAnuncios: _abrirSuscripcion,
-                    );
-                  }
-                  return AdMobBanner(onQuitarAnuncios: _abrirSuscripcion);
-                }
-                final postIndex = hayAnuncios
-                    ? (index ~/ 5) * 4 + index % 5
-                    : index;
-                final post = publicaciones[postIndex] as Map<String, dynamic>;
+                final post = publicaciones[index] as Map<String, dynamic>;
                 final estadoValor = (post['estado'] ?? 'recibido').toString();
                 final estadoTexto =
                     (post['estado_display'] ??

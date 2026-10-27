@@ -2,7 +2,6 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.gis.db import models
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.utils import timezone
 
 # Poner en False si quieres permitir cualquier salto de estado (no recomendado para la defensa)
 TRANSICIONES_ESTRICTAS = True
@@ -18,15 +17,9 @@ class Usuario(AbstractUser):
     )
     foto_perfil = models.ImageField(upload_to='perfiles/', blank=True, null=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
-    # Modelo freemium: el VIP vence solo, no hace falta un campo booleano
-    vip_hasta = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'usuarios'
-
-    @property
-    def es_vip(self):
-        return bool(self.vip_hasta and self.vip_hasta > timezone.now())
 
     def __str__(self):
         return f"{self.cedula} - {self.username}"
@@ -79,10 +72,7 @@ class Incidencia(models.Model):
     )
     # Alimenta el campo "fecha de última actualización" del informe PDF (RF014)
     fecha_ultima_actualizacion = models.DateTimeField(auto_now=True)
-    # VIP: oculta la identidad al público (el personal técnico sí la ve)
     anonimo = models.BooleanField(default=False)
-    # VIP: se marca al crear el reporte, para atenderlo con prioridad
-    prioritaria = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.get_categoria_display()} - {self.fecha_creacion.strftime('%d/%m/%Y')}"
@@ -199,7 +189,7 @@ class GeocercaMunicipal(models.Model):
 
 
 class Anuncio(models.Model):
-    """Publicidad del modelo freemium. Solo la ven los usuarios sin suscripción VIP."""
+    """Anuncio que puede mostrarse a todos los usuarios."""
     anunciante = models.CharField(max_length=100)
     titulo = models.CharField(max_length=120)
     texto = models.CharField(max_length=240, blank=True, default='')
@@ -213,28 +203,3 @@ class Anuncio(models.Model):
 
     def __str__(self):
         return f"{self.anunciante}: {self.titulo}"
-
-class Pago(models.Model):
-    """Cobros de la suscripción VIP. Pasarela SIMULADA: nunca se guarda el número
-    completo de la tarjeta ni el CVV, solo la marca y los últimos 4 dígitos."""
-
-    class Estado(models.TextChoices):
-        APROBADO = 'aprobado', 'Aprobado'
-        RECHAZADO = 'rechazado', 'Rechazado'
-
-    usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='pagos')
-    monto = models.DecimalField(max_digits=6, decimal_places=2)
-    dias = models.PositiveIntegerField()
-    metodo = models.CharField(max_length=20)
-    marca = models.CharField(max_length=20, blank=True, default='')
-    ultimos4 = models.CharField(max_length=4, blank=True, default='')
-    estado = models.CharField(max_length=10, choices=Estado.choices)
-    referencia = models.CharField(max_length=40, unique=True)
-    simulado = models.BooleanField(default=True)
-    fecha = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-fecha']
-
-    def __str__(self):
-        return f"{self.referencia} · {self.get_estado_display()} · ${self.monto}"

@@ -7,7 +7,6 @@ import '../../core/aparecer.dart';
 import '../../core/app_header.dart';
 import '../../core/theme.dart';
 import '../auth/biometric_service.dart';
-import '../suscripcion/suscripcion_screen.dart';
 import 'services/geolocator_service.dart';
 import 'widgets/categoria_dropdown.dart';
 import 'widgets/foto_picker.dart';
@@ -35,8 +34,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
   bool _cargandoGps = false;
   bool _cargandoFoto = false;
 
-  // Modelo freemium
-  bool _esVip = false;
   bool _anonimo = false;
 
   final _geolocatorService = GeolocatorService();
@@ -58,12 +55,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
     CategoriaOpcion('LUZ', 'Luminaria defectuosa', Icons.lightbulb_outline),
     CategoriaOpcion('OTRO', 'Otros daños', Icons.report_problem_outlined),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _cargarEsVip();
-  }
 
   double _getResponsiveHeight(BuildContext context, double percentage) {
     return MediaQuery.of(context).size.height * percentage;
@@ -116,35 +107,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
     }
   }
 
-  // ───────────────────────── Modelo freemium ─────────────────────────
-
-  Future<void> _cargarEsVip() async {
-    try {
-      final perfil = await _apiService.obtenerPerfil();
-      if (!mounted) return;
-      setState(() {
-        _esVip = perfil['es_vip'] == true;
-        if (!_esVip) _anonimo = false;
-      });
-    } catch (_) {
-      // Si falla, se asume plan gratuito
-    }
-  }
-
-  Future<void> _abrirSuscripcion() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SuscripcionScreen()),
-    );
-    if (!mounted) return;
-    await _cargarEsVip();
-  }
-
   void _alternarAnonimo(bool valor) {
-    if (!_esVip) {
-      _abrirSuscripcion();
-      return;
-    }
     setState(() => _anonimo = valor);
   }
 
@@ -169,36 +132,12 @@ class _ReporteScreenState extends State<ReporteScreen> {
             size: 20,
           ),
         ),
-        title: Row(
-          children: [
-            const Flexible(
-              child: Text(
-                'Reporte anónimo',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Text(
-                'VIP',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
+        title: const Text(
+          'Reporte anónimo',
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
-          _esVip
-              ? 'Tu nombre y foto no se mostrarán al público. Tu reporte se atiende con prioridad.'
-              : 'Función exclusiva para suscriptores VIP. Toca para ver el plan.',
+          'Tu nombre y foto no se mostrarán al público.',
           style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
         ),
         trailing: Switch(
@@ -289,10 +228,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
         if (response.statusCode == 400) {
           mensajeError =
               '⚠️ No se pudo enviar. Verifica que:\n1. La foto esté adjunta\n2. Estés dentro del área municipal';
-        } else if (response.statusCode == 403) {
-          mensajeError =
-              '⭐ El reporte anónimo es exclusivo para suscriptores VIP.';
-          _cargarEsVip();
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

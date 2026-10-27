@@ -18,7 +18,7 @@ class IncidenciaSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'categoria', 'descripcion', 'foto', 'fecha_creacion',
             'estado', 'estado_display', 'latitud', 'longitud', 'ubicacion',
-            'usuario_nombre', 'usuario_foto', 'anonimo', 'prioritaria',
+            'usuario_nombre', 'usuario_foto', 'anonimo',
         ]
         extra_kwargs = {
             'ubicacion': {'required': False, 'allow_null': True},
@@ -26,8 +26,6 @@ class IncidenciaSerializer(serializers.ModelSerializer):
             'fecha_creacion': {'read_only': True},
             # El ciudadano NO puede fijar el estado: solo cambia vía cambiar_estado()
             'estado': {'read_only': True},
-            # Se calcula en el servidor según la suscripción del usuario
-            'prioritaria': {'read_only': True},
         }
 
     def _autor_visible(self, obj):
@@ -141,16 +139,13 @@ class PerfilSerializer(serializers.ModelSerializer):
     foto_perfil_url = serializers.SerializerMethodField()
     total_reportes = serializers.SerializerMethodField()
     reportes_por_estado = serializers.SerializerMethodField()
-    es_vip = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Usuario
         fields = [
             'cedula', 'first_name', 'last_name', 'email', 'metodo_verificacion',
             'foto_perfil_url', 'total_reportes', 'reportes_por_estado', 'fecha_registro',
-            'es_vip', 'vip_hasta',
         ]
-        read_only_fields = ['vip_hasta']
 
     def get_foto_perfil_url(self, obj):
         request = self.context.get('request')

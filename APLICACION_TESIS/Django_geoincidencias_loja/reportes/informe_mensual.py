@@ -74,8 +74,6 @@ def generar_informe_mensual(anio: int, mes: int) -> BytesIO:
         resumen.append([etiqueta, n, f'{n / total * 100:.1f}%' if total else '0.0%'])
     el += [
         _tabla(resumen, [8 * cm, 4 * cm, 4 * cm]),
-        Spacer(1, 0.3 * cm),
-        Paragraph('<b>[VIP]</b> = reporte prioritario (suscriptor VIP), atendido primero.', celda),
         Spacer(1, 0.4 * cm),
     ]
 
@@ -92,7 +90,7 @@ def generar_informe_mensual(anio: int, mes: int) -> BytesIO:
             obs = (ultimo.observacion if ultimo else '') or '—'
             filas.append([
                 i.pk,
-                Paragraph(('<b>[VIP]</b> ' if i.prioritaria else '') + escape(categorias.get(i.categoria, i.categoria)), celda),
+                Paragraph(escape(categorias.get(i.categoria, i.categoria)), celda),
                 _fecha(i.fecha_creacion),
                 _fecha(i.fecha_ultima_actualizacion),
                 f'{i.ubicacion.y:.5f}, {i.ubicacion.x:.5f}',

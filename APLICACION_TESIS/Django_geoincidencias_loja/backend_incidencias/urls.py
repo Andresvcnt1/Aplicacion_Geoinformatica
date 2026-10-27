@@ -16,8 +16,7 @@ urlpatterns = [
     path('api/incidencias/<int:inc_id>/historial/', views.HistorialIncidenciaView.as_view(), name='historial_incidencia'),
     path('api/informe-mensual/', views.InformeMensualPDFView.as_view(), name='informe_mensual'),
 
-    # Modelo freemium
-    path('api/suscripcion/', views.SuscripcionView.as_view(), name='suscripcion'),
+    # Anuncios activos disponibles para todos los usuarios
     path('api/anuncios/', views.AnunciosView.as_view(), name='anuncios'),
 
     path('api/registro/', views.RegistroView.as_view(), name='registro'),

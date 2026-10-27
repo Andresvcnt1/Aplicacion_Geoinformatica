@@ -1,5 +1,4 @@
 import json
-from datetime import timedelta
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate
@@ -9,17 +8,13 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import generics, parsers, status
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from decimal import Decimal
-from django.db import transaction
-from .pagos import PagoInvalido, registrar_pago, validar_datos_pago
 
 from .informe_mensual import generar_informe_mensual
-from .models import Anuncio, GeocercaMunicipal, HistorialEstado, Incidencia, Usuario, Pago
+from .models import Anuncio, GeocercaMunicipal, HistorialEstado, Incidencia, Usuario
 from .serializers import (
     AnuncioSerializer,
     HistorialEstadoSerializer,
@@ -27,12 +22,6 @@ from .serializers import (
     PerfilSerializer,
     RegistroUsuarioSerializer,
 )
-
-# Plan único del modelo freemium (pasarela de pago simulada en esta versión).
-# Pon aquí el precio que dice tu documento de tesis.
-VIP_DIAS = 30
-VIP_PRECIO_USD = '2.00'
-
 
 @ensure_csrf_cookie
 @staff_member_required(login_url='/admin/login/')
@@ -49,7 +38,6 @@ class IncidenciasListCreateView(generics.ListCreateAPIView):
     Controlador API para los reportes de incidencias ciudadanas.
     Lectura pública (feed de publicaciones), creación requiere login.
     - ?mios=1 devuelve solo los reportes del usuario autenticado.
-    - Para el personal técnico, los reportes prioritarios (VIP) salen primero.
     El primer registro del historial lo crea Incidencia.save().
     """
     serializer_class = IncidenciaSerializer
@@ -70,16 +58,12 @@ class IncidenciasListCreateView(generics.ListCreateAPIView):
                 return qs.none()
             return qs.filter(usuario=user).order_by('-fecha_creacion')
 
-        if user.is_authenticated and user.is_staff:
-            return qs.order_by('-prioritaria', '-fecha_creacion')
         return qs.order_by('-fecha_creacion')
 
     def perform_create(self, serializer):
         user = self.request.user
         anonimo = bool(serializer.validated_data.get('anonimo', False))
-        if anonimo and not user.es_vip:
-            raise PermissionDenied('El reporte anónimo es exclusivo para suscriptores VIP.')
-        serializer.save(usuario=user, anonimo=anonimo, prioritaria=user.es_vip)
+        serializer.save(usuario=user, anonimo=anonimo)
 
 
 def geocercas_geojson(request):
@@ -209,78 +193,13 @@ class InformeMensualPDFView(APIView):
         )
 
 
-def _resumen_vip(user):
-    return {
-        'es_vip': user.es_vip,
-        'vip_hasta': timezone.localtime(user.vip_hasta).isoformat() if user.vip_hasta else None,
-        'plan': {
-            'nombre': 'VIP mensual',
-            'dias': VIP_DIAS,
-            'precio_usd': VIP_PRECIO_USD,
-            'beneficios': [
-                'Reportes anónimos ante el público',
-                'Sin anuncios',
-                'Atención prioritaria de tus reportes',
-            ],
-        },
-        'simulado': True,
-    }
-
-
-class SuscripcionView(APIView):
-    """Suscripción VIP (modelo freemium). Pasarela de pago SIMULADA.
-    GET: estado y plan. POST: cobra y activa o extiende VIP_DIAS días. DELETE: cancela."""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        return Response(_resumen_vip(request.user))
-
-    def post(self, request):
-        user = request.user
-        try:
-            datos = validar_datos_pago(request.data)
-        except PagoInvalido as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        with transaction.atomic():
-            pago = registrar_pago(user, datos, Decimal(VIP_PRECIO_USD), VIP_DIAS)
-            if pago.estado == Pago.Estado.APROBADO:
-                base = user.vip_hasta if user.es_vip else timezone.now()
-                user.vip_hasta = base + timedelta(days=VIP_DIAS)
-                user.save(update_fields=['vip_hasta'])
-
-        resumen_pago = {
-            'referencia': pago.referencia,
-            'estado': pago.estado,
-            'monto': str(pago.monto),
-            'marca': pago.marca,
-            'ultimos4': pago.ultimos4,
-        }
-        if pago.estado == Pago.Estado.RECHAZADO:
-            return Response(
-                {'error': 'La tarjeta fue rechazada por el emisor (simulación).',
-                 'pago': resumen_pago},
-                status=status.HTTP_402_PAYMENT_REQUIRED,
-            )
-        return Response({**_resumen_vip(user), 'pago': resumen_pago},
-                        status=status.HTTP_200_OK)
-
-    def delete(self, request):
-        user = request.user
-        user.vip_hasta = None
-        user.save(update_fields=['vip_hasta'])
-        return Response(_resumen_vip(user))
-
 class AnunciosView(generics.ListAPIView):
-    """Publicidad para el feed. Los suscriptores VIP no reciben anuncios."""
+    """Devuelve los anuncios activos a cualquier usuario."""
     permission_classes = [AllowAny]
     serializer_class = AnuncioSerializer
     pagination_class = None
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_authenticated and user.es_vip:
-            return Anuncio.objects.none()
         return Anuncio.objects.filter(activo=True)
 
 
