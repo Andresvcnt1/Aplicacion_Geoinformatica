@@ -23,7 +23,6 @@ interface Incidencia {
   categoria: string;
   descripcion: string;
   estado: string;
-  prioritaria?: boolean;
   anonimo?: boolean;
   fecha_creacion?: string;
   usuario_nombre?: string;
@@ -185,18 +184,11 @@ export default function ReporteModal({
             </div>
           )}
 
-          {(incidencia.prioritaria || incidencia.anonimo) && (
+          {incidencia.anonimo && (
             <div className="mt-4 flex flex-wrap gap-2">
-              {incidencia.prioritaria && (
-                <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                  ★ Prioritario · suscriptor VIP: atender primero
-                </span>
-              )}
-              {incidencia.anonimo && (
-                <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  Reporte anónimo
-                </span>
-              )}
+              <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                Reporte anónimo
+              </span>
             </div>
           )}
 
