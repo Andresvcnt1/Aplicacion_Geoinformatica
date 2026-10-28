@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.gis import admin as gis_admin
 from django.contrib.gis.forms.widgets import OSMWidget
-from .models import Anuncio, GeocercaMunicipal, Incidencia, Usuario
+from .models import Anuncio, DispositivoPush, GeocercaMunicipal, Incidencia, Usuario
 
 
 # ============================================
@@ -88,3 +88,11 @@ class AnuncioAdmin(admin.ModelAdmin):
     list_display = ('titulo', 'anunciante', 'activo', 'orden')
     list_editable = ('activo', 'orden')
     search_fields = ('titulo', 'anunciante')
+
+
+@admin.register(DispositivoPush)
+class DispositivoPushAdmin(admin.ModelAdmin):
+    list_display = ('usuario', 'plataforma', 'activo', 'fecha_registro', 'fecha_actualizacion')
+    list_filter = ('plataforma', 'activo')
+    search_fields = ('usuario__username', 'usuario__cedula')
+    readonly_fields = ('fecha_registro', 'fecha_actualizacion')

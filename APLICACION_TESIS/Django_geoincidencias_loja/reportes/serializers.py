@@ -3,7 +3,38 @@ from django.contrib.gis.geos import Point
 from django.db.models import Count
 from rest_framework import serializers
 
-from .models import Anuncio, Usuario, Incidencia, GeocercaMunicipal, HistorialEstado
+from .models import (
+    Anuncio,
+    DispositivoPush,
+    GeocercaMunicipal,
+    HistorialEstado,
+    Incidencia,
+    Usuario,
+)
+
+
+class DispositivoPushRegistroSerializer(serializers.Serializer):
+    token = serializers.CharField(trim_whitespace=True, allow_blank=False)
+    plataforma = serializers.ChoiceField(
+        choices=DispositivoPush.PLATAFORMAS,
+        required=False,
+        default='android',
+    )
+
+    def create(self, validated_data):
+        self.instance, self.created = DispositivoPush.objects.update_or_create(
+            token=validated_data['token'],
+            defaults={
+                'usuario': self.context['request'].user,
+                'plataforma': validated_data['plataforma'],
+                'activo': True,
+            },
+        )
+        return self.instance
+
+
+class DispositivoPushBajaSerializer(serializers.Serializer):
+    token = serializers.CharField(trim_whitespace=True, allow_blank=False)
 
 
 class IncidenciaSerializer(serializers.ModelSerializer):

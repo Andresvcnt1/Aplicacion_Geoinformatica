@@ -3,6 +3,8 @@ from django.contrib.gis.db import models
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from .notifications import enviar_push_cambio_estado
+
 # Poner en False si quieres permitir cualquier salto de estado (no recomendado para la defensa)
 TRANSICIONES_ESTRICTAS = True
 
@@ -125,13 +127,18 @@ class Incidencia(models.Model):
         self.estado = nuevo_estado
         # auto_now solo se actualiza si el campo está en update_fields
         self.save(update_fields=['estado', 'fecha_ultima_actualizacion'])
-        return HistorialEstado.objects.create(
+        registro = HistorialEstado.objects.create(
             incidencia=self,
             estado_anterior=anterior,
             estado_nuevo=nuevo_estado,
             usuario_responsable=usuario,
             observacion=observacion,
         )
+        transaction.on_commit(
+            lambda: enviar_push_cambio_estado(self, nuevo_estado),
+            robust=True,
+        )
+        return registro
 
 
 class HistorialEstado(models.Model):
@@ -203,3 +210,32 @@ class Anuncio(models.Model):
 
     def __str__(self):
         return f"{self.anunciante}: {self.titulo}"
+
+
+class DispositivoPush(models.Model):
+    PLATAFORMAS = [
+        ('android', 'Android'),
+        ('ios', 'iOS'),
+    ]
+
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name='dispositivos_push',
+    )
+    token = models.TextField(unique=True)
+    plataforma = models.CharField(
+        max_length=10,
+        choices=PLATAFORMAS,
+        default='android',
+    )
+    activo = models.BooleanField(default=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-fecha_actualizacion']
+        unique_together = [('usuario', 'token')]
+
+    def __str__(self):
+        return f"Dispositivo {self.plataforma} de {self.usuario.username}"

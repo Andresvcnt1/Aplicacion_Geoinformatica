@@ -14,14 +14,65 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .informe_mensual import generar_informe_mensual
-from .models import Anuncio, GeocercaMunicipal, HistorialEstado, Incidencia, Usuario
+from .models import (
+    Anuncio,
+    DispositivoPush,
+    GeocercaMunicipal,
+    HistorialEstado,
+    Incidencia,
+    Usuario,
+)
 from .serializers import (
     AnuncioSerializer,
+    DispositivoPushBajaSerializer,
+    DispositivoPushRegistroSerializer,
     HistorialEstadoSerializer,
     IncidenciaSerializer,
     PerfilSerializer,
     RegistroUsuarioSerializer,
 )
+
+
+class DispositivoPushView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = DispositivoPushRegistroSerializer(
+            data=request.data,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        dispositivo = serializer.save()
+        creado = serializer.created
+        return Response(
+            {
+                'mensaje': 'Dispositivo registrado correctamente.',
+                'id': dispositivo.pk,
+                'plataforma': dispositivo.plataforma,
+            },
+            status=status.HTTP_201_CREATED if creado else status.HTTP_200_OK,
+        )
+
+    def delete(self, request):
+        serializer = DispositivoPushBajaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        actualizado = DispositivoPush.objects.filter(
+            usuario=request.user,
+            token=serializer.validated_data['token'],
+        ).update(
+            activo=False,
+            fecha_actualizacion=timezone.now(),
+        )
+        if not actualizado:
+            return Response(
+                {'error': 'Dispositivo no encontrado.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(
+            {'mensaje': 'Dispositivo dado de baja correctamente.'},
+            status=status.HTTP_200_OK,
+        )
+
 
 @ensure_csrf_cookie
 @staff_member_required(login_url='/admin/login/')

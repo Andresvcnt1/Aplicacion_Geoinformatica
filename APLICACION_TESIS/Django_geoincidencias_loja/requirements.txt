@@ -6,3 +6,4 @@ psycopg2-binary
 django-cors-headers
 Pillow
 reportlab
+firebase-admin==7.7.0
