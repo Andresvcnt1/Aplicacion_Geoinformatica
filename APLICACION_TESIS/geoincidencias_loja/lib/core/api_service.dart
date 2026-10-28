@@ -1,11 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'constants.dart';
 import '../models/incidencia.dart';
 
 class ApiService {
+  static final Uri _dispositivosPushUri = Uri.parse(
+    '${ApiConstants.baseUrl}/api/dispositivos-push/',
+  );
+
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('access_token');
@@ -19,6 +24,48 @@ class ApiService {
   Future<Map<String, String>> _authHeaders() async {
     final token = await _getToken();
     return {if (token != null) 'Authorization': 'Bearer $token'};
+  }
+
+  Future<void> registrarTokenPush(String token) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .post(
+            _dispositivosPushUri,
+            headers: {...headers, 'Content-Type': 'application/json'},
+            body: jsonEncode({'token': token, 'plataforma': 'android'}),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        debugPrint(
+          'No se pudo registrar el token push (${response.statusCode}).',
+        );
+      }
+    } catch (error) {
+      debugPrint('Error de red al registrar el token push: $error');
+    }
+  }
+
+  Future<void> eliminarTokenPush(String token) async {
+    try {
+      final headers = await _authHeaders();
+      final request = http.Request('DELETE', _dispositivosPushUri)
+        ..headers.addAll({...headers, 'Content-Type': 'application/json'})
+        ..body = jsonEncode({'token': token});
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 8),
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode != 200) {
+        debugPrint(
+          'No se pudo dar de baja el token push (${response.statusCode}).',
+        );
+      }
+    } catch (error) {
+      debugPrint('Error de red al dar de baja el token push: $error');
+    }
   }
 
   /// Intenta renovar el access_token usando el refresh_token guardado.
@@ -102,6 +149,17 @@ class ApiService {
       return jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
     }
     throw Exception('Error al cargar publicaciones (${response.statusCode})');
+  }
+
+  Future<Incidencia> obtenerReportePorId(int incidenciaId) async {
+    final publicaciones = await obtenerPublicaciones();
+    for (final publicacion in publicaciones) {
+      if (publicacion is Map<String, dynamic> &&
+          publicacion['id'] == incidenciaId) {
+        return Incidencia.fromJson(publicacion);
+      }
+    }
+    throw Exception('No se encontró la incidencia $incidenciaId');
   }
 
   /// Reportes del usuario logueado (requiere filtro ?mios=1 en el backend).

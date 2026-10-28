@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "711370110240",
+    "project_id": "geoincidencias-loja",
+    "storage_bucket": "geoincidencias-loja.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711370110240:android:8fab6ebe87b9eb1b099345",
+        "android_client_info": {
+          "package_name": "com.example.geoincidencias_loja"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtAlraudrF3jXKmAkClKFCNNvAsn6nEW4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

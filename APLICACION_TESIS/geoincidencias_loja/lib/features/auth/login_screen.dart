@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/api_service.dart';
 import '../../core/constants.dart';
 import '../../core/aparecer.dart';
 import '../../core/theme.dart';
@@ -50,6 +53,8 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('username', data['username']);
         await prefs.setBool('sesion_activa', true);
 
+        unawaited(_registrarTokenPush());
+
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -69,6 +74,20 @@ class _LoginScreenState extends State<LoginScreen> {
       _showSnackBar('❌ Error de conexión: $e', Colors.redAccent);
     } finally {
       if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  Future<void> _registrarTokenPush() async {
+    try {
+      // FCM recomienda register/onRegistered, pero getToken es necesario
+      // porque el backend envía con el token de registro FCM.
+      // ignore: deprecated_member_use
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await ApiService().registrarTokenPush(token);
+      }
+    } catch (error) {
+      debugPrint('No se pudo obtener o registrar el token FCM: $error');
     }
   }
 

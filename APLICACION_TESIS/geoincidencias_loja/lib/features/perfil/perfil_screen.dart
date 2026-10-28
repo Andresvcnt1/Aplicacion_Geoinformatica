@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -119,6 +120,19 @@ class _PerfilScreenState extends State<PerfilScreen> {
     );
 
     if (confirmar != true) return;
+
+    try {
+      // Se usa el token FCM almacenado en el backend para poder darlo de baja.
+      // ignore: deprecated_member_use
+      final token = await FirebaseMessaging.instance.getToken().timeout(
+        const Duration(seconds: 5),
+      );
+      if (token != null) {
+        await _apiService.eliminarTokenPush(token);
+      }
+    } catch (error) {
+      debugPrint('No se pudo dar de baja el token FCM: $error');
+    }
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
