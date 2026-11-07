@@ -16,13 +16,15 @@ services:
     container_name: geoincidencias_backend
     restart: always
     volumes:
-      - "./APLICACION_TESIS/Django_geoincidencias_loja/media:/app/media"
-      - "./APLICACION_TESIS/Django_geoincidencias_loja/static:/app/static"
-      - ./APLICACION_TESIS/Django_geoincidencias_loja/media:/var/www/media 
+      - "./APLICACION_TESIS/Django_geoincidencias_loja:/app"
+      - "./APLICACION_TESIS/Django_geoincidencias_loja/media:/var/www/media"
+      - "/opt/geoincidencias/firebase-service-account.json:/opt/geoincidencias/firebase-service-account.json:ro" 
     depends_on:
       - db
     networks:
       - geoincidencias_net
+    env_file:
+      - .env
   nginx:
     image: nginx:alpine
     container_name: geoincidencias_nginx
