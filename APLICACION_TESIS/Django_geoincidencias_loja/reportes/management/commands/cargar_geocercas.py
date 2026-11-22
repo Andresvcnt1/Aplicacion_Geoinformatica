@@ -12,7 +12,11 @@ Ejemplos (dentro del contenedor, con el archivo dentro de la carpeta del proyect
     python manage.py cargar_geocercas datos_geo/PARROQUIAS_URBANAS.geojson \
         --campo-nombre name --descripcion "Parroquia urbana"
 
+    python manage.py cargar_geocercas datos_geo/PARROQUIAS_URBANAS.geojson \
+        --campo-nombre parroquia --solo Loja --descripcion "Límite urbano de la ciudad de Loja"
+
 Reglas:
+- Si las coordenadas traen Z (p. ej. [lon, lat, 0]) se descarta; la columna es 2D.
 - GeocercaMunicipal.area es PolygonField: un MultiPolygon se separa en una
   geocerca por parte, con nombre "Nombre (1)", "Nombre (2)", ...
 - No duplica: si ya existe una geocerca con el mismo nombre, la omite.
@@ -25,6 +29,14 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from reportes.models import GeocercaMunicipal
+
+def _a_2d(coords):
+    """Quita la coordenada Z ([lon, lat, 0] -> [lon, lat]) en cualquier nivel de anidación.
+    GeoServer suele entregar Z=0 y la columna area es 2D (PostGIS rechaza Z en ella)."""
+    if coords and isinstance(coords[0], (int, float)):
+        return list(coords[:2])
+    return [_a_2d(c) for c in coords]
+
 
 # Rango aproximado de Ecuador: detecta archivos en otro sistema de coordenadas.
 LON_MIN, LON_MAX = -92.5, -75.0
@@ -137,6 +149,9 @@ class Command(BaseCommand):
     def _leer_geometria(self, geometry, nombre):
         if not geometry:
             raise CommandError(f'«{nombre}» no tiene geometría.')
+        geometry = dict(geometry)
+        if 'coordinates' in geometry:
+            geometry['coordinates'] = _a_2d(geometry['coordinates'])
         try:
             geom = GEOSGeometry(json.dumps(geometry))
         except Exception as e:
