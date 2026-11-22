@@ -12,9 +12,21 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+if os.name == 'nt':
+    postgresql_root = Path(os.environ.get('ProgramFiles', r'C:\Program Files')) / 'PostgreSQL'
+    for postgresql_bin in sorted(postgresql_root.glob('*/bin'), reverse=True):
+        gdal_libraries = sorted(postgresql_bin.glob('libgdal*.dll'), reverse=True)
+        geos_libraries = sorted(postgresql_bin.glob('libgeos_c*.dll'), reverse=True)
+        if gdal_libraries and geos_libraries:
+            _postgresql_dll_directory = os.add_dll_directory(str(postgresql_bin))
+            GDAL_LIBRARY_PATH = os.environ.get('GDAL_LIBRARY_PATH', str(gdal_libraries[0]))
+            GEOS_LIBRARY_PATH = os.environ.get('GEOS_LIBRARY_PATH', str(geos_libraries[0]))
+            break
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -98,7 +110,7 @@ DATABASES = {
         'NAME': 'sig',
         'USER': 'postgres',
         'PASSWORD': 'Hola.lol1',
-        'HOST': 'db',
+        'HOST': os.environ.get('DB_HOST', '127.0.0.1' if os.name == 'nt' else 'db'),
         'PORT': '5432',
     }
 }
