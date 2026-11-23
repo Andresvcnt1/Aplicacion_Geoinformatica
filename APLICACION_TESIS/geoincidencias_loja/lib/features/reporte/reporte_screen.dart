@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import '../../core/api_service.dart';
 import '../../core/aparecer.dart';
 import '../../core/app_header.dart';
@@ -11,6 +12,7 @@ import 'services/geolocator_service.dart';
 import 'widgets/categoria_dropdown.dart';
 import 'widgets/foto_picker.dart';
 import 'widgets/gps_card.dart';
+import 'widgets/mapa_selector.dart';
 
 class ReporteScreen extends StatefulWidget {
   const ReporteScreen({super.key});
@@ -89,11 +91,175 @@ class _ReporteScreenState extends State<ReporteScreen> {
     }
   }
 
-  Future<void> _seleccionarImagen() async {
+  Future<void> _mostrarSelectorUbicacion() async {
+    final LatLng? ubicacionInicial = _posicionActual != null
+        ? LatLng(_posicionActual!.latitude, _posicionActual!.longitude)
+        : null;
+
+    final resultado = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapaSelectorScreen(ubicacionInicial: ubicacionInicial),
+      ),
+    );
+
+    if (resultado != null && mounted) {
+      setState(() {
+        _posicionActual = Position(
+          latitude: resultado.latitude,
+          longitude: resultado.longitude,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          heading: 0,
+          speed: 0,
+          speedAccuracy: 0,
+          altitudeAccuracy: 0,
+          headingAccuracy: 0,
+        );
+        _errorGps = false;
+        _mensajeErrorGps = null;
+      });
+    }
+  }
+
+  void _mostrarOpcionesUbicacion() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Seleccionar ubicación'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primario.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.my_location,
+                  color: AppTheme.primario,
+                  size: 24,
+                ),
+              ),
+              title: const Text('GPS automático'),
+              subtitle: const Text('Usar mi ubicación actual'),
+              onTap: () {
+                Navigator.pop(context);
+                _obtenerUbicacionGPS();
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primario.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.map,
+                  color: AppTheme.primario,
+                  size: 24,
+                ),
+              ),
+              title: const Text('Seleccionar en mapa'),
+              subtitle: const Text('Marcar manualmente en el mapa'),
+              onTap: () {
+                Navigator.pop(context);
+                _mostrarSelectorUbicacion();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _mostrarOpcionesFuente() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Selecciona la fuente de la foto'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primario.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.camera_alt,
+                  color: AppTheme.primario,
+                  size: 24,
+                ),
+              ),
+              title: const Text('Cámara'),
+              subtitle: const Text('Tomar una foto nueva'),
+              onTap: () {
+                Navigator.pop(context);
+                _tomarFotoCamara();
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primario.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.photo_library,
+                  color: AppTheme.primario,
+                  size: 24,
+                ),
+              ),
+              title: const Text('Galería'),
+              subtitle: const Text('Seleccionar de las guardadas'),
+              onTap: () {
+                Navigator.pop(context);
+                _seleccionarFotoGaleria();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _tomarFotoCamara() async {
     setState(() => _cargandoFoto = true);
     try {
       final XFile? imagen = await _picker.pickImage(
         source: ImageSource.camera,
+        imageQuality: 70,
+      );
+      if (imagen != null && mounted) {
+        setState(() {
+          _imagenSeleccionada = File(imagen.path);
+          _fotoObligatoriaResaltada = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _cargandoFoto = false);
+    }
+  }
+
+  Future<void> _seleccionarFotoGaleria() async {
+    setState(() => _cargandoFoto = true);
+    try {
+      final XFile? imagen = await _picker.pickImage(
+        source: ImageSource.gallery,
         imageQuality: 70,
       );
       if (imagen != null && mounted) {
@@ -323,7 +489,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                     imagen: _imagenSeleccionada,
                     cargando: _cargandoFoto,
                     resaltarFalta: _fotoObligatoriaResaltada,
-                    onTap: _seleccionarImagen,
+                    onTap: _mostrarOpcionesFuente,
                   ),
                 ),
               ),
@@ -336,7 +502,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                   posicion: _posicionActual,
                   tieneError: _errorGps,
                   mensajeError: _mensajeErrorGps,
-                  onTap: _obtenerUbicacionGPS,
+                  onTap: _mostrarOpcionesUbicacion,
                 ),
               ),
               const SizedBox(height: 22),
